@@ -1,7 +1,0 @@
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/masterNode.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/edit_cache.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/rebuild_cache.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/list_install_components.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/install.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/install/local.dir
-/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build/CMakeFiles/install/strip.dir
