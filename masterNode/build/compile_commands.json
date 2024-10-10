@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/build",
+  "command": "/usr/bin/g++ -DBOOST_PROGRAM_OPTIONS_DYN_LINK -DBOOST_PROGRAM_OPTIONS_NO_LIB -DBOOST_SYSTEM_DYN_LINK -DBOOST_SYSTEM_NO_LIB -g -std=gnu++20 -Wextra -Werror=vla -o CMakeFiles/masterNode.dir/main.cpp.o -c /home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/main.cpp",
+  "file": "/home/hamuladm/Documents/studies/3rd-year/os/project/DFS/masterNode/main.cpp",
+  "output": "CMakeFiles/masterNode.dir/main.cpp.o"
+}
+]
