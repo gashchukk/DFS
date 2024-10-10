@@ -4,6 +4,6 @@
 #include <iostream>
 
 int main(int argc, char* argv[]) {
-    std::cout << "Welcome to server" << std::endl;
+    std::cout << "Welcome to client" << std::endl;
     return 0;
 }
