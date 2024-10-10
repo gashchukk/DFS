@@ -8,7 +8,7 @@
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
-int main() {
+int main(int argc, char* argv[]) {
     int sock = 0;
     struct sockaddr_in serv_addr;
     char buffer[BUFFER_SIZE] = {0};
@@ -24,7 +24,7 @@ int main() {
 
     std::cout << "Connected to server, sending file..." << std::endl;
 
-    std::string file_path = "/Users/abkodrogobic/UCU/DFS/image.jpg";
+    std::string file_path = argv[1];
     std::string file_name = file_path.substr(file_path.find_last_of("/") + 1);
 
     send(sock, file_name.c_str(), file_name.size(), 0);
