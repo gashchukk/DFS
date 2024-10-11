@@ -20,12 +20,10 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 include(cmake/CompilerWarnings.cmake)
 
-add_executable(${PROJECT_NAME} main.cpp
+add_executable(${PROJECT_NAME} main.cpp MasterNode.cpp MasterNode.hpp
 				)
-				
-find_package(Boost 1.71.0 COMPONENTS program_options system REQUIRED)
+
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} Boost::program_options Boost::system)
 
 INSTALL(PROGRAMS
 		$<TARGET_FILE:${PROJECT_NAME}>

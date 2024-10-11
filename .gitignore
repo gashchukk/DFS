@@ -121,3 +121,15 @@ Temporary Items
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,macos,c++,cmake
+
+# CMake Build
+build/
+masterNode/cmake-build-debug
+masterNode/cmake-build-release
+masterNode/bin
+node/cmake-build-debug
+node/cmake-build-release
+node/bin
+client/cmake-build-debug
+client/cmake-build-release
+client/bin
