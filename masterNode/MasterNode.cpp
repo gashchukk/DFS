@@ -6,30 +6,74 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <algorithm>
+#include <fstream>
+
+#define CHUNK_SIZE 4096
+#define HEARBEAT 0x10
 
 MasterNode::MasterNode()
 {
     std::srand(std::time(nullptr));
 }
 
-void MasterNode::registerChunkServer(const std::string &serverId)
+void MasterNode::registerChunkServer(const std::string &serverId, int port)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    chunkServers_[serverId] = {"online", std::time(nullptr), {}};
-    std::cout << "Chunk server " << serverId << " registered.\n";
+    {
+        chunkServers_[serverId] = {Status::ALIVE, std::time(nullptr), {}, port};
+    }
 }
 
 void MasterNode::updateHeartbeat(const std::string &serverId)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (chunkServers_.find(serverId) != chunkServers_.end())
     {
-        chunkServers_[serverId].lastHeartbeat = std::time(nullptr);
-        std::cout << "Heartbeat updated for server " << serverId << ".\n";
-    }
-    else
-    {
-        std::cout << "Server " << serverId << " is not registered.\n";
+        if (chunkServers_.find(serverId) != chunkServers_.end())
+        {
+            int serverPort = chunkServers_[serverId].port;
+            int sock = socket(AF_INET, SOCK_STREAM, 0);
+            if (sock == -1)
+            {
+                std::cerr << "Error creating socket\n";
+                return;
+            }
+
+            sockaddr_in serverAddr;
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(serverPort);
+            inet_pton(AF_INET, serverId.c_str(), &serverAddr.sin_addr);
+
+            if (connect(sock, (sockaddr *)&serverAddr, sizeof(serverAddr)) == -1)
+            {
+                std::cerr << "Error connecting to server " << serverId << "\n";
+                chunkServers_[serverId].status = Status::DEAD;
+                close(sock);
+                return;
+            }
+
+            int buf[1] = {HEARBEAT};
+            send(sock, buf, sizeof(buf), 0);
+
+            char buffer[1024] = {0};
+            int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
+            if (bytesReceived > 0 && std::string(buffer, bytesReceived) == "ACK")
+            {
+                chunkServers_[serverId].lastHeartbeat = std::time(nullptr);
+                chunkServers_[serverId].status = Status::ALIVE;
+                std::cout << "Heartbeat updated for server " << serverId << ".\n";
+            }
+            else
+            {
+                std::cerr << "No ACK received from server " << serverId << "\n";
+                chunkServers_[serverId].status = Status::DEAD;
+            }
+
+            close(sock);
+        }
+        else
+        {
+            std::cout << "Server " << serverId << " is not registered.\n";
+        }
     }
 }
 
@@ -69,40 +113,22 @@ void MasterNode::monitorChunkServers()
     while (true)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        for (auto it = chunkServers_.begin(); it != chunkServers_.end();)
         {
-            std::time_t currentTime = std::time(nullptr);
-            if (currentTime - it->second.lastHeartbeat > 5)
+            for (auto it = chunkServers_.begin(); it != chunkServers_.end();)
             {
-                std::cout << "Server " << it->first << " is down (no heartbeat).\n";
-                it = chunkServers_.erase(it);
-            }
-            else
-            {
-                ++it;
+                std::time_t currentTime = std::time(nullptr);
+                if (currentTime - it->second.lastHeartbeat > 5)
+                {
+                    std::cout << "Server " << it->first << " is down (no heartbeat).\n";
+                    it = chunkServers_.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
             }
         }
-        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
-}
-
-void MasterNode::handleClient(int clientSocket)
-{
-    char buffer[1024];
-    std::memset(buffer, 0, sizeof(buffer));
-
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-    if (bytesReceived > 0)
-    {
-        std::string message(buffer, bytesReceived);
-        std::cout << "Received message from data node: " << message << std::endl;
-        if (message == "HEARTBEAT")
-        {
-            updateHeartbeat("server1"); // Example server ID, can be parsed from message
-        }
-    }
-
-    close(clientSocket);
 }
 
 void MasterNode::startMasterServer(int port)
@@ -149,11 +175,10 @@ void MasterNode::startMasterServer(int port)
 
         std::cout << "Data node connected.\n";
 
-        /*
         std::thread clientThread(&MasterNode::handleClient, this, clientSocket);
         clientThread.detach();
-        */
     }
 
     close(serverSocket);
 }
+
