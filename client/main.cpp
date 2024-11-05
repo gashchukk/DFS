@@ -1,46 +1,43 @@
+#include "includes/Client.h"
 #include <iostream>
-#include <fstream>
-#include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <string>
 
-#define PORT 8080
-#define BUFFER_SIZE 1024
+int main() {
+    std::string masterIP = "127.0.0.1";
+    int masterPort = 8080;
 
-int main(int argc, char* argv[]) {
-    int sock = 0;
-    struct sockaddr_in serv_addr;
-    char buffer[BUFFER_SIZE] = {0};
+    Client client(masterIP, masterPort);
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    std::string action;
+    std::cout << "Enter action (STORE or RETRIEVE): ";
+    std::cin >> action;
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
+    if (action == "STORE") {
+        std::string filename, data;
+        std::cout << "Enter filename: ";
+        std::cin >> filename;
 
-    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+        std::cout << "Enter data to store: ";
+        std::cin.ignore(); // To ignore newline from previous input
+        std::getline(std::cin, data);
 
-    connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+        client.writeFile(filename, data); // Store the file by sending chunks to the Chunk Server
+        std::cout << "Data stored successfully." << std::endl;
 
-    std::cout << "Connected to server, sending file..." << std::endl;
+    } else if (action == "RETRIEVE") {
+        std::string filename;
+        std::cout << "Enter filename to retrieve: ";
+        std::cin >> filename;
 
-    std::string file_path = argv[1];
-    std::string file_name = file_path.substr(file_path.find_last_of("/") + 1);
-
-    send(sock, file_name.c_str(), file_name.size(), 0);
-
-    std::ifstream infile(file_path, std::ios::binary);
-
-    while (!infile.eof()) {
-        infile.read(buffer, BUFFER_SIZE);
-        ssize_t bytes_read = infile.gcount();
-        send(sock, buffer, bytes_read, 0);
+        std::string fileData = client.readFile(filename); // Retrieve the file from the Chunk Server
+        if (!fileData.empty()) {
+            std::cout << "Retrieved data: " << fileData << std::endl;
+        } else {
+            std::cout << "File not found." << std::endl;
+        }
+    } else {
+        std::cout << "Invalid action specified. Please enter STORE or RETRIEVE." << std::endl;
     }
-
-    std::cout << "File sent successfully." << std::endl;
-
-    infile.close();
-    close(sock);
 
     return 0;
 }

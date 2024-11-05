@@ -1,9 +1,7 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+#include "includes/MasterNodeServer.hpp"
 
-#include <iostream>
-
-int main(int argc, char* argv[]) {
-    std::cout << "Hello from MasterNode" << std::endl;
+int main() {
+    MasterNodeServer masterServer(8080); 
+    masterServer.start();
     return 0;
 }
