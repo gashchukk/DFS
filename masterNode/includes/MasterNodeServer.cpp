@@ -12,7 +12,6 @@
 MasterNodeServer::MasterNodeServer(int port) : serverPort(port) {}
 
 std::unordered_map<std::string, std::chrono::time_point<std::chrono::steady_clock>> activeChunkServers;
-const int HEARTBEAT_TIMEOUT = 10;
 
 void MasterNodeServer::start() {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -33,23 +32,6 @@ void MasterNodeServer::start() {
 
     listen(serverSocket, 5);
     std::cout << "Master Node listening on port " << serverPort << std::endl;
-
-    std::thread([&]() {
-        while (true) {
-            // Monitor for inactive Chunk Servers and remove it
-            auto now = std::chrono::steady_clock::now();
-            for (auto it = activeChunkServers.begin(); it != activeChunkServers.end(); ) {
-                auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - it->second).count();
-                if (duration > HEARTBEAT_TIMEOUT) {
-                    std::cout << "Chunk Server " << it->first << " is inactive" << std::endl;
-                    it = activeChunkServers.erase(it); 
-                } else {
-                    ++it;
-                }
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(HEARTBEAT_TIMEOUT / 2));
-        }
-    }).detach();
 
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
@@ -74,18 +56,23 @@ void MasterNodeServer::handleConnection(int clientSocket) {
     std::string request(buffer, bytesReceived);
     std::string response;
 
-    if (request.starts_with("HEARTBEAT:")) {
+    if (request.starts_with("HEARTBEAT:")) { //chunkserver request
         std::string chunkServerIP = request.substr(10); 
         activeChunkServers[chunkServerIP] = std::chrono::steady_clock::now();
         std::cout << "Received heartbeat from ChunkServer: " << chunkServerIP << std::endl;
         response = "Heartbeat received\n";
 
-    } else if (request.starts_with("CREATE_FILE")) {
+    } else if (request.starts_with("CREATE_FILE")) { // client request
         std::string filename = request.substr(12);
-        masterNode.createFile(filename);
-        response = "File created successfully\n";
-
-    } else if (request.starts_with("ADD_CHUNK")) {
+        try {
+            // Create the file and get the chunk server IP address
+            std::string chunkServerIP = masterNode.createFile(filename);
+            response = "ChunkServerIP: " + chunkServerIP + "\n"; // Response format for the client
+        } catch (const std::runtime_error& e) {
+            response = std::string("Error: ") + e.what() + "\n";
+        }
+}
+else if (request.starts_with("ADD_CHUNK")) { //chunkserver request
         size_t pos = request.find(" ");
         std::string filename = request.substr(pos + 1, request.find(" ", pos + 1) - pos - 1);
         std::string chunkID = request.substr(request.find(" ", pos + 1) + 1);

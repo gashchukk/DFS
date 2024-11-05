@@ -10,5 +10,5 @@ private:
     std::string masterIP;
     int masterPort;
 
-    std::vector<std::pair<std::string, std::string>> getChunkServers(const std::string& filename); // Get chunk locations
+    std::vector<std::string> getChunkServers(const std::string& filename); // Get chunk locations
 };

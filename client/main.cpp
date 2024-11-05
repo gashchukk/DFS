@@ -18,7 +18,7 @@ int main() {
         std::cin >> filename;
 
         std::cout << "Enter data to store: ";
-        std::cin.ignore(); // To ignore newline from previous input
+        std::cin.ignore(); 
         std::getline(std::cin, data);
 
         client.writeFile(filename, data); // Store the file by sending chunks to the Chunk Server

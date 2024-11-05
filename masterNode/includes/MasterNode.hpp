@@ -10,10 +10,12 @@ struct ChunkLocation {
 class MasterNode {
 public:
     MasterNode();
-    void createFile(const std::string& filename);
+    std::string createFile(const std::string& filename);
+    std::string selectChunkServer();
     void addChunk(const std::string& filename, const std::string& chunkID, const std::string& serverIP);
     std::vector<ChunkLocation> getChunkLocations(const std::string& filename);
 
 private:
     std::unordered_map<std::string, std::vector<ChunkLocation>> fileMetadata; // maps file to chunk locations
+    std::vector<std::string> availableChunkServers;
 };

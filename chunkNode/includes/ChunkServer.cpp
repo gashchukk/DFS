@@ -73,6 +73,7 @@ void ChunkServer::handleClientRequest(int clientSocket) {
     read(clientSocket, buffer, 255);
 
     std::string request(buffer);
+    std::cout<<request<<std::endl;
     if (request.starts_with("STORE ")) {
         // Parse STORE command
         auto delimiterPos = request.find(" ");
