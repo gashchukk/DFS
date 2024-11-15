@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 ChunkServer::ChunkServer(int port) : serverPort(port) {}
 
@@ -37,9 +39,21 @@ void ChunkServer::start() {
     }
 }
 
+
 void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data) {
-    std::string filename = "chunks/" + chunkID; // Save chunks in a directory named "chunks"
-    std::ofstream chunkFile(filename, std::ios::binary);
+    std::string directory = "chunks";
+    struct stat info;
+
+    if (stat(directory.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+        // Directory does not exist, create it
+        if (mkdir(directory.c_str(), 0777) != 0) {
+            std::cerr << "Failed to create directory: " << directory << std::endl;
+            return;
+        }
+    }
+
+    std::string filename = directory + "/" + chunkID; // Save chunks in "chunks"
+    std::ofstream chunkFile(filename);
     if (chunkFile.is_open()) {
         chunkFile.write(data.c_str(), data.size());
         chunkFile.close();
@@ -50,22 +64,6 @@ void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data
     }
 }
 
-std::string ChunkServer::retrieveChunk(const std::string& chunkID) {
-    if (chunkStorage.find(chunkID) == chunkStorage.end()) {
-        std::cerr << "Chunk " << chunkID << " not found" << std::endl;
-        return "";
-    }
-
-    std::ifstream chunkFile(chunkStorage[chunkID], std::ios::binary);
-    if (!chunkFile.is_open()) {
-        std::cerr << "Failed to read chunk " << chunkID << std::endl;
-        return "";
-    }
-
-    std::string data((std::istreambuf_iterator<char>(chunkFile)), std::istreambuf_iterator<char>());
-    chunkFile.close();
-    return data;
-}
 
 void ChunkServer::handleClientRequest(int clientSocket) {
     char buffer[256];
@@ -84,9 +82,9 @@ void ChunkServer::handleClientRequest(int clientSocket) {
         storeChunk(chunkID, data);
     } else if (request.starts_with("RETRIEVE ")) {
         // Parse RETRIEVE command
-        auto chunkID = request.substr(request.find(" ") + 1);
+        //auto chunkID = request.substr(request.find(" ") + 1);
 
-        std::string data = retrieveChunk(chunkID);
-        send(clientSocket, data.c_str(), data.size(), 0);
+        //std::string data = retrieveChunk(chunkID);
+       // send(clientSocket, data.c_str(), data.size(), 0);
     }
 }
