@@ -16,12 +16,10 @@ int main() {
         std::string filename, data;
         std::cout << "Enter filename: ";
         std::cin >> filename;
-
         std::cout << "Enter data to store: ";
         std::cin.ignore(); 
         std::getline(std::cin, data);
-
-        client.writeFile(filename, data); // Store the file by sending chunks to the Chunk Server
+        client.writeFile(filename, data); 
         std::cout << "Data stored successfully." << std::endl;
 
     } else if (action == "RETRIEVE") {
@@ -29,7 +27,7 @@ int main() {
         std::cout << "Enter filename to retrieve: ";
         std::cin >> filename;
 
-        std::string fileData = client.readFile(filename); // Retrieve the file from the Chunk Server
+        std::string fileData = client.readFile(filename);
         if (!fileData.empty()) {
             std::cout << "Retrieved data: " << fileData << std::endl;
         } else {

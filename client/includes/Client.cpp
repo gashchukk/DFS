@@ -13,7 +13,6 @@ Client::Client(const std::string& ip, int port) : masterIP(ip), masterPort(port)
 std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     std::vector<std::string> chunkServers;
 
-    // Step 1: Connect to the Master Node
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Error creating socket" << std::endl;
@@ -31,58 +30,69 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
         return chunkServers;
     }
 
-    // Step 2: Send the "CREATE_FILE " command followed by the filename to the Master Node
     std::string request = "CREATE_FILE " + filename;
     send(sock, request.c_str(), request.length(), 0);
 
-    // Step 3: Receive Chunk Server IP Address
-    char buffer[1024];
-    int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytesReceived < 0) {
-        std::cerr << "Error receiving data from Master Node" << std::endl;
-        close(sock);
-        return chunkServers;
+char buffer[1024];
+std::string response;
+int bytesReceived;
+while ((bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
+    buffer[bytesReceived] = '\0'; 
+    response += buffer;
+    if (response.find("\n") != std::string::npos) { // End-of-message marker
+        break;
     }
-    buffer[bytesReceived] = '\0'; // Null-terminate the received data
+}
 
-    // Step 4: Parse the response to get Chunk Server IP
-    std::string response(buffer);
-    if (response.find("ChunkServerIP:") == 0) { // Expected format: "ChunkServerIP: <IP>"
-        std::string chunkServerIP = response.substr(15); // Extract IP starting from index 14
-        chunkServerIP.erase(chunkServerIP.find_last_not_of("\n\r") + 1); // Trim newline if any
-
-        chunkServers.push_back(chunkServerIP); // Add the IP to chunkServers list
-
-    } else {
-        std::cerr << "Invalid response from Master Node: " << response << std::endl;
-    }
-   
-    // Step 5: Close the Socket
+if (bytesReceived < 0) {
+    std::cerr << "Error receiving data from Master Node" << std::endl;
     close(sock);
-    //std::cout<<chunkServers[0];
     return chunkServers;
 }
 
 
+if (response.rfind("ChunkServerIP:", 0) == 0) { 
+    std::string chunkServerIP = response.substr(15); 
+
+    chunkServerIP.erase(chunkServerIP.find_last_not_of(" \n\r\t") + 1); //trim from end
+    chunkServerIP.erase(0, chunkServerIP.find_first_not_of(" \n\r\t")); //trim fron start
+
+
+    chunkServers.push_back(chunkServerIP);
+    std::cout << "Stored ChunkServerIP: [" << chunkServers[0] << "]" << std::endl;
+} else {
+    std::cerr << "Invalid response from Master Node: " << response << std::endl;
+}
+
+
+    close(sock);
+    return chunkServers;
+}
+
 void Client::writeFile(const std::string& filename, const std::string& data) {
     std::vector<std::string> chunkServers = getChunkServers(filename);
-    //std::cout<<chunkServers[0]<<std::endl;
-    const size_t chunkSize = 64 ; // 64 KB
-    size_t r = 1;
-//    std::cout<<r;
-    size_t n =0;
+    const size_t chunkSize = 64; // 64 bytes for demonstration
 
-//    std::cout<<n<< "r:"<<r;
-    size_t totalChunks = r + n;
-    //std::cout << "Data size: " << data.size() << std::endl;
+    size_t totalChunks = (data.size() / chunkSize) + (data.size() % chunkSize != 0 ? 1 : 0);
 
     for (size_t i = 0; i < totalChunks; ++i) {
         size_t start = i * chunkSize;
         size_t end = std::min(start + chunkSize, data.size());
-        // Extract the chunk data
         std::string chunkData = data.substr(start, end - start);
-        std::string chunkID = filename + "_" + std::to_string(i);
+        std::string chunkID = filename + "_" + std::to_string(i) + ".txt";
+
         if (!chunkServers.empty()) {
+            // Parse IP and port
+            std::string chunkServerIPPort = chunkServers[0]; 
+            size_t colonPos = chunkServerIPPort.find(':');
+            if (colonPos == std::string::npos) {
+                std::cerr << "Invalid IP:Port format: " << chunkServerIPPort << std::endl;
+                return;
+            }
+
+            std::string chunkServerIP = chunkServerIPPort.substr(0, colonPos);
+            int chunkServerPort = std::stoi(chunkServerIPPort.substr(colonPos + 1));
+
             int chunkServerSocket = socket(AF_INET, SOCK_STREAM, 0);
             if (chunkServerSocket < 0) {
                 std::cerr << "Error creating socket for chunk server." << std::endl;
@@ -91,26 +101,31 @@ void Client::writeFile(const std::string& filename, const std::string& data) {
 
             struct sockaddr_in serverAddr;
             serverAddr.sin_family = AF_INET;
-            serverAddr.sin_port = htons(8081);
-            inet_pton(AF_INET, chunkServers[0].c_str(), &serverAddr.sin_addr);
+            serverAddr.sin_port = htons(chunkServerPort);
+            if (inet_pton(AF_INET, chunkServerIP.c_str(), &serverAddr.sin_addr) <= 0) {
+                std::cerr << "Invalid IP address format: " << chunkServerIP << std::endl;
+                close(chunkServerSocket);
+                return;
+            }
 
             if (connect(chunkServerSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-                std::cerr << "Connection to chunk server failed." << std::endl;
+                std::cerr << "Connection to chunk server failed: " << chunkServerIP << ":" << chunkServerPort << std::endl;
                 close(chunkServerSocket);
                 return;
             }
 
             std::string command = "STORE " + chunkID + " " + chunkData;
-            std::cout<<command;
             send(chunkServerSocket, command.c_str(), command.size(), 0);
             close(chunkServerSocket);
-            std::cout << "Sent chunk " << chunkID << " to chunk server." << std::endl;
+
+            std::cout << "Sent chunk " << chunkID << " to chunk server " << chunkServerIP << ":" << chunkServerPort << "." << std::endl;
         } else {
             std::cerr << "No chunk servers available for storing the chunk." << std::endl;
             return;
         }
     }
 }
+
 std::string Client::readFile(const std::string& filename) {
     auto chunkServers = getChunkServers(filename);
 

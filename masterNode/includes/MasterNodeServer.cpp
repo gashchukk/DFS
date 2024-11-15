@@ -68,6 +68,8 @@ void MasterNodeServer::handleConnection(int clientSocket) {
             // Create the file and get the chunk server IP address
             std::string chunkServerIP = masterNode.createFile(filename);
             response = "ChunkServerIP: " + chunkServerIP + "\n"; // Response format for the client
+            send(clientSocket, response.c_str(), response.size(), 0);
+
         } catch (const std::runtime_error& e) {
             response = std::string("Error: ") + e.what() + "\n";
         }
@@ -100,5 +102,4 @@ else if (request.starts_with("ADD_CHUNK")) { //chunkserver request
         response = "Unknown command\n";
     }
 
-    send(clientSocket, response.c_str(), response.size(), 0);
 }

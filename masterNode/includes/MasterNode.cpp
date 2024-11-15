@@ -16,7 +16,7 @@ std::string MasterNode::createFile(const std::string& filename) {
     std::string selectedServer = selectChunkServer();
 
     fileMetadata[filename] = {ChunkLocation{filename + "_chunk_0", {selectedServer}}};
-    std::cout << "File " << filename << " sent request to write on " << selectedServer <<" and in was saved in metadata" <<std::endl;
+    std::cout << "File " << filename << " sent request to write on " << selectedServer <<" and was saved in metadata" <<std::endl;
 
     return selectedServer;
 }
