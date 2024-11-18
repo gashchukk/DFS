@@ -55,51 +55,30 @@ void MasterNodeServer::handleConnection(int clientSocket) {
 
     std::string request(buffer, bytesReceived);
     std::string response;
+    std::string chunkServerIP;
+    if(request.starts_with("GET_CHUNK_LOCATION")) {
+        try{
+            chunkServerIP = masterNode.selectChunkServer();
+            response = "ChunkServerIP: " + chunkServerIP + "\n";
+            send(clientSocket, response.c_str(), response.size(), 0);
+        }catch(const std::exception& e) {
+            response = std::string("Error: ") + e.what() + "\n";
+        }
+    }
 
     if (request.starts_with("HEARTBEAT:")) { //chunkserver request
-        std::string chunkServerIP = request.substr(10); 
+        chunkServerIP = request.substr(10); 
         activeChunkServers[chunkServerIP] = std::chrono::steady_clock::now();
         std::cout << "Received heartbeat from ChunkServer: " << chunkServerIP << std::endl;
         response = "Heartbeat received\n";
 
     } else if (request.starts_with("CREATE_FILE")) { // client request
         std::string filename = request.substr(12);
-        try {
-            // Create the file and get the chunk server IP address
-            std::string chunkServerIP = masterNode.createFile(filename);
-            response = "ChunkServerIP: " + chunkServerIP + "\n"; // Response format for the client
-            send(clientSocket, response.c_str(), response.size(), 0);
+        masterNode.createFile(filename, chunkServerIP);
+            
 
-        } catch (const std::runtime_error& e) {
-            response = std::string("Error: ") + e.what() + "\n";
+    }else {
+            response = "Unknown command\n";
         }
-}
-else if (request.starts_with("ADD_CHUNK")) { //chunkserver request
-        size_t pos = request.find(" ");
-        std::string filename = request.substr(pos + 1, request.find(" ", pos + 1) - pos - 1);
-        std::string chunkID = request.substr(request.find(" ", pos + 1) + 1);
-
-        std::string serverIP = "127.0.0.1"; 
-        masterNode.addChunk(filename, chunkID, serverIP);
-        response = "Chunk added successfully\n";
-
-    } else if (request.starts_with("GET_CHUNK_LOCATIONS")) {
-        std::string filename = request.substr(19);
-        try {
-            auto chunkLocations = masterNode.getChunkLocations(filename);
-            response = "Chunk locations:\n";
-            for (const auto& location : chunkLocations) {
-                response += location.chunkID + " on server(s): ";
-                for (const auto& ip : location.serverIPs) {
-                    response += ip + " ";
-                }
-                response += "\n";
-            }
-        } catch (const std::exception& e) {
-            response = std::string("Error: ") + e.what() + "\n";
-        }
-    } else {
-        response = "Unknown command\n";
-    }
 
 }

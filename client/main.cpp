@@ -9,7 +9,7 @@ int main() {
     Client client(masterIP, masterPort);
 
     std::string action;
-    std::cout << "Enter action (STORE or RETRIEVE): ";
+    std::cout << "Enter action (STORE or RETRIEVE or LIST): ";
     std::cin >> action;
 
     if (action == "STORE") {
@@ -33,7 +33,8 @@ int main() {
         } else {
             std::cout << "File not found." << std::endl;
         }
-    } else {
+    } 
+    else {
         std::cout << "Invalid action specified. Please enter STORE or RETRIEVE." << std::endl;
     }
 

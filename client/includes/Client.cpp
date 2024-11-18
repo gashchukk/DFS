@@ -30,43 +30,43 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
         return chunkServers;
     }
 
-    std::string request = "CREATE_FILE " + filename;
-    send(sock, request.c_str(), request.length(), 0);
+     std::string request = "GET_CHUNK_LOCATION " + filename;
+     send(sock, request.c_str(), request.length(), 0);
 
-char buffer[1024];
-std::string response;
-int bytesReceived;
-while ((bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
-    buffer[bytesReceived] = '\0'; 
-    response += buffer;
-    if (response.find("\n") != std::string::npos) { // End-of-message marker
-        break;
+    char buffer[1024];
+    std::string response;
+    int bytesReceived;
+    while ((bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
+        buffer[bytesReceived] = '\0'; 
+        response += buffer;
+        if (response.find("\n") != std::string::npos) { // End-of-message marker
+            break;
+        }
     }
-}
 
-if (bytesReceived < 0) {
-    std::cerr << "Error receiving data from Master Node" << std::endl;
-    close(sock);
-    return chunkServers;
-}
-
-
-if (response.rfind("ChunkServerIP:", 0) == 0) { 
-    std::string chunkServerIP = response.substr(15); 
-
-    chunkServerIP.erase(chunkServerIP.find_last_not_of(" \n\r\t") + 1); //trim from end
-    chunkServerIP.erase(0, chunkServerIP.find_first_not_of(" \n\r\t")); //trim fron start
+    if (bytesReceived < 0) {
+        std::cerr << "Error receiving data from Master Node" << std::endl;
+        close(sock);
+        return chunkServers;
+    }
 
 
-    chunkServers.push_back(chunkServerIP);
-    std::cout << "Stored ChunkServerIP: [" << chunkServers[0] << "]" << std::endl;
-} else {
-    std::cerr << "Invalid response from Master Node: " << response << std::endl;
-}
+    if (response.rfind("ChunkServerIP:", 0) == 0) { 
+        std::string chunkServerIP = response.substr(15); 
 
+        chunkServerIP.erase(chunkServerIP.find_last_not_of(" \n\r\t") + 1); //trim from end
+        chunkServerIP.erase(0, chunkServerIP.find_first_not_of(" \n\r\t")); //trim fron start
+
+
+        chunkServers.push_back(chunkServerIP);
+        std::cout << "Stored ChunkServerIP: [" << chunkServers[0] << "]" << std::endl;
+    } else {
+        std::cerr << "Invalid response from Master Node: " << response << std::endl;
+    }
 
     close(sock);
-    return chunkServers;
+    std::cout<<chunkServers[0];
+        return chunkServers;
 }
 
 void Client::writeFile(const std::string& filename, const std::string& data) {
