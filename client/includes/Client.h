@@ -5,6 +5,7 @@ class Client {
 public:
     Client(const std::string& masterIP, int masterPort);
     void writeFile(const std::string& filename);
+    void readfile(const std::string& fileName);
 
 private:
     std::string masterIP;

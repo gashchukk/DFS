@@ -66,22 +66,30 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         }
     }
 
-if (request.starts_with("HEARTBEAT:")) { // chunkserver request
-    size_t ipStart = request.find(':') + 1;
-    size_t chunkStart = request.find(':', ipStart) + 1;
+    if (request.starts_with("HEARTBEAT:")) { 
+        size_t ipStart = request.find(':') + 1;
+        size_t chunkStart = request.find(':', ipStart) + 1;
 
-    std::string ip = request.substr(ipStart, chunkStart - ipStart - 1);
-    std::string chunkName = request.substr(chunkStart);
+        std::string ip = request.substr(ipStart, chunkStart - ipStart - 1);
+        std::string chunkName = request.substr(chunkStart);
 
-    // Derive filename from chunkName (remove the last part after the underscore)
-    size_t underscorePos = chunkName.rfind('_');
-    std::string filename = chunkName.substr(0, underscorePos);
+        size_t underscorePos = chunkName.rfind('_');
+        std::string filename = chunkName.substr(0, underscorePos);
 
-    // Process the heartbeat (e.g., update metadata)
-    std::cout << "Received heartbeat from " << ip << " for chunk " << chunkName << " (filename: " << filename << ")" << std::endl;
+        std::cout << "Received heartbeat from " << ip << " for chunk " << chunkName << " (filename: " << filename << ")" << std::endl;
 
-    ChunkLocation chunk(chunkName, ip);
-    masterNode.createFile(filename, chunk);
-}
+        ChunkLocation chunk(chunkName, ip);
+        masterNode.createFile(filename, chunk);
+    }else if(request.starts_with("READFILE:")){
+        std::vector<std::pair<std::string, std::string>> chunkLocations = masterNode.readFileRequest(request);
 
+        std::string response;
+    for (const auto& chunk : chunkLocations) {
+        response += chunk.first + ":" + chunk.second + "\n";  
     }
+
+    send(clientSocket, response.c_str(), response.size(), 0);
+    std::cout << "Sent chunk locations to client: " << response << std::endl;
+    }
+
+}

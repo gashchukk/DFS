@@ -9,7 +9,19 @@
 namespace fs = std::filesystem;
 
 int main() {
+    std::string directory = "chunks";
+    if (!fs::exists(directory)) {
+        try {
+            fs::create_directory(directory);
+            std::cout << "Directory 'chunks' created." << std::endl;
+        } catch (const std::filesystem::filesystem_error& e) {
+            std::cerr << "Error creating 'chunks' directory: " << e.what() << std::endl;
+            return 1;
+        }
+    }
+
     std::unordered_set<std::string> processedChunks; 
+
     std::thread t1([&]() {
         ChunkServerClient chunkClient("127.0.0.1", 8080);
         while (true) {
@@ -25,11 +37,10 @@ int main() {
                     processedChunks.insert(chunkPath);
                 }
             }
-            std::this_thread::sleep_for(std::chrono::seconds(5)); // Check for new chunks every 5 seconds
+            std::this_thread::sleep_for(std::chrono::seconds(5)); 
         }
     });
 
-    // Thread to start the Chunk Server
     std::thread t2([&]() {
         ChunkServer chunkServer(8081);
         chunkServer.start();

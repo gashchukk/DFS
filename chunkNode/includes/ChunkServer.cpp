@@ -11,6 +11,8 @@
 #include <regex>
 #include <vector>
 #include <algorithm>
+#include <sstream>
+
 ChunkServer::ChunkServer(int port) : serverPort(port) {}
 
 void ChunkServer::start() {
@@ -33,6 +35,7 @@ void ChunkServer::start() {
     listen(serverSocket, 5);
     std::cout << "Chunk Server listening on port " << serverPort << std::endl;
 
+
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket >= 0) {
@@ -42,20 +45,9 @@ void ChunkServer::start() {
     }
 }
 
-
 void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data) {
-    std::string directory = "chunks";
-    struct stat info;
+    std::string filename = "chunks/" + chunkID; 
 
-    if (stat(directory.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
-        // Directory does not exist, create it
-        if (mkdir(directory.c_str(), 0777) != 0) {
-            std::cerr << "Failed to create directory: " << directory << std::endl;
-            return;
-        }
-    }
-
-    std::string filename = directory + "/" + chunkID; // Save chunks in "chunks"
     std::ofstream chunkFile(filename);
     if (chunkFile.is_open()) {
         chunkFile.write(data.c_str(), data.size());
@@ -73,10 +65,9 @@ void ChunkServer::handleClientRequest(int clientSocket) {
     read(clientSocket, buffer, 255);
 
     std::string request(buffer);
-    std::cout << "Received request: " << request << std::endl;
 
     if (request.starts_with("STORE ")) {
-        // Parse STORE command
+        std::cout << "Received request: STORE "<< std::endl;
         auto delimiterPos = request.find(" ");
         auto chunkIDPos = request.find(" ", delimiterPos + 1);
         std::string chunkID = request.substr(delimiterPos + 1, chunkIDPos - delimiterPos - 1);
@@ -84,11 +75,33 @@ void ChunkServer::handleClientRequest(int clientSocket) {
 
         storeChunk(chunkID, data);
     } else if (request.starts_with("RETRIEVE ")) {
-       std::cout<<"retrieve";
+    std::cout << "Received request: RETRIEVE "  << std::endl;
+
+    std::string chunkName = request.substr(9); 
+    std::string chunkPath = "chunks/" + chunkName;
+
+    std::ifstream chunkFile(chunkPath, std::ios::binary);
+    if (chunkFile) {
+        std::cout << "Found chunk: " << chunkName << std::endl;
+
+        std::stringstream buffer;
+        buffer << chunkFile.rdbuf();
+
+        std::string chunkData = buffer.str();
+
+        send(clientSocket, chunkData.c_str(), chunkData.length(), 0);
+
+        std::cout << "Sent chunk data for: " << chunkName << std::endl;
     } else {
+        std::cerr << "Chunk not found: " << chunkName << std::endl;
+
+        std::string errorMessage = "ERROR: Chunk " + chunkName + " not found.";
+        send(clientSocket, errorMessage.c_str(), errorMessage.length(), 0);
+    }
+}
+ else {
         std::string errorMsg = "ERROR: Invalid command\n";
         write(clientSocket, errorMsg.c_str(), errorMsg.size());
         std::cerr << "Invalid command received." << std::endl;
     }
 }
-
