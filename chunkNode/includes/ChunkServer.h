@@ -7,7 +7,6 @@ public:
     ChunkServer(int port);
     void start();
     void storeChunk(const std::string& chunkID, const std::string& data);
-    std::string retrieveChunk(const std::string& chunkID);
 
 private:
     int serverPort;

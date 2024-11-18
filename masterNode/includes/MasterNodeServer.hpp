@@ -9,4 +9,5 @@ private:
     int serverPort;
     MasterNode masterNode;
     void handleConnection(int clientSocket);
+    void printMetadataPeriodically();
 };

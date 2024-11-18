@@ -68,11 +68,11 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     }
 
     close(sock);
-    std::cout<<chunkServers[0];
-        return chunkServers;
+    return chunkServers;
 }
+
 void Client::writeFile(const std::string& filepath) {
-    // Open the file in binary mode
+
     std::filesystem::path path(filepath);
      std::string filename= path.filename().string();
     std::ifstream inputFile(filepath, std::ios::binary);
@@ -83,12 +83,11 @@ void Client::writeFile(const std::string& filepath) {
 
     // Read the entire file into a vector of bytes
     std::vector<char> data((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
-    inputFile.close();  // Close the file after reading
+    inputFile.close(); 
 
     std::vector<std::string> chunkServers = getChunkServers(filename);
-    const size_t chunkSize = 256; // 64 bytes for demonstration, adjust as needed
+    const size_t chunkSize = 256; 
 
-    // Calculate total number of chunks
     size_t totalChunks = (data.size() / chunkSize) + (data.size() % chunkSize != 0 ? 1 : 0);
 
     for (size_t i = 0; i < totalChunks; ++i) {
@@ -154,52 +153,5 @@ void Client::writeFile(const std::string& filepath) {
             return;
         }
     }
-}
-
-
-std::string Client::readFile(const std::string& filename) {
-    auto chunkServers = getChunkServers(filename);
-
-    if (chunkServers.empty()) {
-        std::cerr << "No chunk servers available for retrieving file: " << filename << std::endl;
-        return "";
-    }
-
-    std::string fileData;
-    for (size_t i = 0; i < chunkServers.size(); ++i) {
-        std::string chunkID = filename + "_" + std::to_string(i);
-        int chunkServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-        if (chunkServerSocket < 0) {
-            std::cerr << "Error creating socket for chunk server." << std::endl;
-            return "";
-        }
-
-        struct sockaddr_in serverAddr;
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(8081);
-        inet_pton(AF_INET, chunkServers[i].c_str(), &serverAddr.sin_addr);
-
-        if (connect(chunkServerSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-            std::cerr << "Connection to chunk server failed for chunk " << chunkID << "." << std::endl;
-            close(chunkServerSocket);
-            return "";
-        }
-
-        std::string command = "RETRIEVE " + chunkID;
-        send(chunkServerSocket, command.c_str(), command.size(), 0);
-
-        char buffer[65536];
-        int bytesRead = recv(chunkServerSocket, buffer, sizeof(buffer), 0);
-        if (bytesRead > 0) {
-            fileData.append(buffer, bytesRead);
-        } else {
-            std::cerr << "Failed to retrieve chunk " << chunkID << std::endl;
-        }
-
-        close(chunkServerSocket);
-    }
-
-    return fileData;
 }
 

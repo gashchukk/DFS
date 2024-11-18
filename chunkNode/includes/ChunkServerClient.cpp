@@ -5,10 +5,11 @@
 #include <unistd.h>
 #include <cstring>
 
-ChunkServerClient::ChunkServerClient(const std::string& ip, int port)
-    : masterIP(ip), masterPort(port) {}
+ChunkServerClient::ChunkServerClient(const std::string& masterIP, int masterPort)
+    : masterIP(masterIP), masterPort(masterPort) {
+}
 
-void ChunkServerClient::sendHeartbeat() {
+void ChunkServerClient::sendHeartbeat(const std::string& chunkName) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Socket creation error" << std::endl;
@@ -29,10 +30,10 @@ void ChunkServerClient::sendHeartbeat() {
         return;
     }
 
-    // Include the IP address of the ChunkServer in the heartbeat message
-    std::string heartbeatMsg = "HEARTBEAT:" + masterIP;
+    // Include the chunk name and IP address in the heartbeat message
+    std::string heartbeatMsg = "HEARTBEAT:" + masterIP + ":" + chunkName;
     send(sock, heartbeatMsg.c_str(), heartbeatMsg.size(), 0);
-    std::cout << "Heartbeat sent to Master" << std::endl;
+    std::cout << "Heartbeat sent to Master: Chunk " << chunkName << " on " << masterIP << std::endl;
 
     close(sock);
 }

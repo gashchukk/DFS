@@ -9,15 +9,24 @@ MasterNode::MasterNode() {
     // Initialize available chunk servers (example IPs)
     availableChunkServers = {"127.0.0.1:8081"};
 }
-void MasterNode::createFile(const std::string& filename, std::string& selectedServer) {
+void MasterNode::createFile(const std::string& filename, const ChunkLocation& chunkLocation) {
+    // Check if the file already exists in the metadata
     if (fileMetadata.find(filename) != fileMetadata.end()) {
-        throw std::runtime_error("File already exists");
+        // File exists, append the new chunk location
+        fileMetadata[filename].push_back(chunkLocation);
+        std::cout << "Appended new chunk to existing file: " << filename << "\n";
+    } else {
+        // File does not exist, create a new entry
+        fileMetadata[filename] = {chunkLocation};
+        std::cout << "Created new file entry with first chunk: " << filename << "\n";
     }
 
-    fileMetadata[filename] = {ChunkLocation{filename + "_chunk_0", {selectedServer}}};
-    std::cout << "File " << filename << " sent request to write on " << selectedServer <<" and was saved in metadata" <<std::endl;
-
+    // Debug log
+    std::cout << "File " << filename << " now has " 
+              << fileMetadata[filename].size() << " chunk(s).\n";
 }
+
+
 
 std::string MasterNode::selectChunkServer() {
     std::random_device rd;

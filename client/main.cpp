@@ -24,16 +24,7 @@ int main() {
         std::cout << "Data stored successfully." << std::endl;
 
     } else if (action == "RETRIEVE") {
-        std::string filename;
-        std::cout << "Enter filename to retrieve: ";
-        std::cin >> filename;
-
-        std::string fileData = client.readFile(filename);
-        if (!fileData.empty()) {
-            std::cout << "Retrieved data: " << fileData << std::endl;
-        } else {
-            std::cout << "File not found." << std::endl;
-        }
+        std::cout<<"retrieve1";
     } else {
         std::cout << "Invalid action specified. Please enter STORE or RETRIEVE." << std::endl;
     }

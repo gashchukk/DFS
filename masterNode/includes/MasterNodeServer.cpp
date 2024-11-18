@@ -66,16 +66,22 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         }
     }
 
+if (request.starts_with("HEARTBEAT:")) { // chunkserver request
+    size_t ipStart = request.find(':') + 1;
+    size_t chunkStart = request.find(':', ipStart) + 1;
 
-    if (request.starts_with("HEARTBEAT:")) { //chunkserver request
-        chunkServerIP = request.substr(10); 
-        activeChunkServers[chunkServerIP] = std::chrono::steady_clock::now();
-        std::cout << "Received heartbeat from ChunkServer: " << chunkServerIP << std::endl;
-        response = "Heartbeat received\n";
+    std::string ip = request.substr(ipStart, chunkStart - ipStart - 1);
+    std::string chunkName = request.substr(chunkStart);
 
-    } else if (request.starts_with("CREATE_FILE")) { // client request
-        std::string filename = request.substr(12);
-        masterNode.createFile(filename, chunkServerIP);
-            
-    }
+    // Derive filename from chunkName (remove the last part after the underscore)
+    size_t underscorePos = chunkName.rfind('_');
+    std::string filename = chunkName.substr(0, underscorePos);
+
+    // Process the heartbeat (e.g., update metadata)
+    std::cout << "Received heartbeat from " << ip << " for chunk " << chunkName << " (filename: " << filename << ")" << std::endl;
+
+    ChunkLocation chunk(chunkName, ip);
+    masterNode.createFile(filename, chunk);
+}
+
     }
