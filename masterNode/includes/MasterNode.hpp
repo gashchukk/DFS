@@ -14,9 +14,9 @@ public:
     std::string selectChunkServer();
     std::vector<std::pair<std::string, std::string>> readFileRequest(const std::string& request);
     void printFileMetadata();
+    std::unordered_map<std::string, std::vector<ChunkLocation>> fileMetadata; // maps file to chunk locations
 
 
 private:
-    std::unordered_map<std::string, std::vector<ChunkLocation>> fileMetadata; // maps file to chunk locations
     std::vector<std::string> availableChunkServers;
 };

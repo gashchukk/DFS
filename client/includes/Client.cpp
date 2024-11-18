@@ -2,6 +2,8 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>  // For stat() function and struct stat
+
 #include <unistd.h>
 #include <cstring>
 #include <sstream>
@@ -226,3 +228,45 @@ void Client::readfile(const std::string& fileName) {
 
     close(sock); 
 }
+void Client::listFiles() {
+
+int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        std::cerr << "Error creating socket" << std::endl;
+        return;
+    }
+
+    struct sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(masterPort);
+    inet_pton(AF_INET, masterIP.c_str(), &serverAddr.sin_addr);
+
+    if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+        std::cerr << "Error connecting to Master Node" << std::endl;
+        close(sock);
+        return;
+    }
+
+    // Send request to list all files
+    std::string request = "LISTFILES";
+    send(sock, request.c_str(), request.length(), 0);
+
+    char buffer[1024];
+    int bytesRead = recv(sock, buffer, sizeof(buffer), 0);
+    if (bytesRead > 0) {
+        std::string response(buffer, bytesRead);
+        std::cout << "Received filenames from Master Node:" << std::endl;
+
+     // Parse filenames and print them
+    // Parse filenames and print them in a directory-like structure
+    std::istringstream responseStream(response);
+    std::string filename;
+    std::cout<<" - chunks/\n";
+    while (std::getline(responseStream, filename)) {
+        // Print each file with a pipe (|) and indentation
+        std::cout << "      | - " << filename << std::endl;
+    }
+
+
+    close(sock);  // Close connection to Master Node
+}}

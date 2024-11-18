@@ -6,7 +6,7 @@ public:
     Client(const std::string& masterIP, int masterPort);
     void writeFile(const std::string& filename);
     void readfile(const std::string& fileName);
-
+    void listFiles();
 private:
     std::string masterIP;
     int masterPort;
