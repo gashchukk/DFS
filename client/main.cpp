@@ -1,6 +1,7 @@
 #include "includes/Client.h"
 #include <iostream>
 #include <string>
+#include <fstream>
 
 int main() {
     std::string masterIP = "127.0.0.1";
@@ -13,13 +14,13 @@ int main() {
     std::cin >> action;
 
     if (action == "STORE") {
-        std::string filename, data;
-        std::cout << "Enter filename: ";
-        std::cin >> filename;
-        std::cout << "Enter data to store: ";
-        std::cin.ignore(); 
-        std::getline(std::cin, data);
-        client.writeFile(filename, data); 
+        std::string  filePath;
+
+        std::cout << "Enter file path to read data from: ";
+        std::cin >> filePath;
+
+        
+        client.writeFile(filePath); 
         std::cout << "Data stored successfully." << std::endl;
 
     } else if (action == "RETRIEVE") {
@@ -33,8 +34,7 @@ int main() {
         } else {
             std::cout << "File not found." << std::endl;
         }
-    } 
-    else {
+    } else {
         std::cout << "Invalid action specified. Please enter STORE or RETRIEVE." << std::endl;
     }
 

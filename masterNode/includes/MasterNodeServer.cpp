@@ -66,6 +66,7 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         }
     }
 
+
     if (request.starts_with("HEARTBEAT:")) { //chunkserver request
         chunkServerIP = request.substr(10); 
         activeChunkServers[chunkServerIP] = std::chrono::steady_clock::now();
@@ -76,9 +77,5 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         std::string filename = request.substr(12);
         masterNode.createFile(filename, chunkServerIP);
             
-
-    }else {
-            response = "Unknown command\n";
-        }
-
-}
+    }
+    }

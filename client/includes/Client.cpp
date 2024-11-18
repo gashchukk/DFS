@@ -7,7 +7,10 @@
 #include <sstream>
 #include <vector>
 #include <string>
-
+#include <fstream>  // for std::ifstream
+#include <string>   // for std::string
+#include <iostream>
+#include<filesystem>
 Client::Client(const std::string& ip, int port) : masterIP(ip), masterPort(port) {}
 
 std::vector<std::string> Client::getChunkServers(const std::string& filename) {
@@ -68,21 +71,34 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     std::cout<<chunkServers[0];
         return chunkServers;
 }
+void Client::writeFile(const std::string& filepath) {
+    // Open the file in binary mode
+    std::filesystem::path path(filepath);
+     std::string filename= path.filename().string();
+    std::ifstream inputFile(filepath, std::ios::binary);
+    if (!inputFile) {
+        std::cerr << "Failed to open file: " << filename << std::endl;
+        return;
+    }
 
-void Client::writeFile(const std::string& filename, const std::string& data) {
+    // Read the entire file into a vector of bytes
+    std::vector<char> data((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
+    inputFile.close();  // Close the file after reading
+
     std::vector<std::string> chunkServers = getChunkServers(filename);
-    const size_t chunkSize = 64; // 64 bytes for demonstration
+    const size_t chunkSize = 256; // 64 bytes for demonstration, adjust as needed
 
+    // Calculate total number of chunks
     size_t totalChunks = (data.size() / chunkSize) + (data.size() % chunkSize != 0 ? 1 : 0);
 
     for (size_t i = 0; i < totalChunks; ++i) {
         size_t start = i * chunkSize;
         size_t end = std::min(start + chunkSize, data.size());
-        std::string chunkData = data.substr(start, end - start);
-        std::string chunkID = filename + "_" + std::to_string(i) + ".txt";
+        std::vector<char> chunkData(data.begin() + start, data.begin() + end);
+        std::string chunkID = filename + "_" + std::to_string(i);
 
         if (!chunkServers.empty()) {
-            // Parse IP and port
+            // Get the first chunk server's IP and port
             std::string chunkServerIPPort = chunkServers[0]; 
             size_t colonPos = chunkServerIPPort.find(':');
             if (colonPos == std::string::npos) {
@@ -93,6 +109,7 @@ void Client::writeFile(const std::string& filename, const std::string& data) {
             std::string chunkServerIP = chunkServerIPPort.substr(0, colonPos);
             int chunkServerPort = std::stoi(chunkServerIPPort.substr(colonPos + 1));
 
+            // Create a socket for the chunk server
             int chunkServerSocket = socket(AF_INET, SOCK_STREAM, 0);
             if (chunkServerSocket < 0) {
                 std::cerr << "Error creating socket for chunk server." << std::endl;
@@ -108,15 +125,28 @@ void Client::writeFile(const std::string& filename, const std::string& data) {
                 return;
             }
 
+            // Connect to the chunk server
             if (connect(chunkServerSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
                 std::cerr << "Connection to chunk server failed: " << chunkServerIP << ":" << chunkServerPort << std::endl;
                 close(chunkServerSocket);
                 return;
             }
 
-            std::string command = "STORE " + chunkID + " " + chunkData;
+            // Command to send to the chunk server
+            std::string command = "STORE " + chunkID + " ";
+
+            // Send the command
             send(chunkServerSocket, command.c_str(), command.size(), 0);
-            close(chunkServerSocket);
+
+            // Send the binary chunk data to the chunk server
+            ssize_t bytesSent = send(chunkServerSocket, chunkData.data(), chunkData.size(), 0);
+            if (bytesSent < 0) {
+                std::cerr << "Failed to send chunk " << chunkID << " to chunk server." << std::endl;
+                close(chunkServerSocket);
+                return;
+            }
+
+            close(chunkServerSocket);  // Close the socket after sending
 
             std::cout << "Sent chunk " << chunkID << " to chunk server " << chunkServerIP << ":" << chunkServerPort << "." << std::endl;
         } else {
@@ -125,6 +155,7 @@ void Client::writeFile(const std::string& filename, const std::string& data) {
         }
     }
 }
+
 
 std::string Client::readFile(const std::string& filename) {
     auto chunkServers = getChunkServers(filename);
@@ -171,3 +202,4 @@ std::string Client::readFile(const std::string& filename) {
 
     return fileData;
 }
+

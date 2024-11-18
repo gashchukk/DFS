@@ -1,0 +1,8 @@
+sh
+./bin/node
+```
+# TO RUN masterNode server
+```
+sh ./compile.sh
+./bin/masterNode
+```
