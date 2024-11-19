@@ -8,6 +8,7 @@ clean:
 		echo "Cleaning $$dir..."; \
 		rm -rf $$dir/bin $$dir/cmake-build-debug $$dir/*.o $$dir/*.out $$dir/*.log $$dir/*.tmp; \
 	done
+	@rm -rf chunkNode/chunks/ ;
 	@echo "Cleanup completed."
 
 compile:

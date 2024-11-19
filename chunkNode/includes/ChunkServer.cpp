@@ -45,61 +45,90 @@ void ChunkServer::start() {
     }
 }
 
+
 void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data) {
     std::string filename = "chunks/" + chunkID; 
 
-    std::ofstream chunkFile(filename);
-    if (chunkFile.is_open()) {
-        chunkFile.write(data.c_str(), data.size());
-        chunkFile.close();
-        chunkStorage[chunkID] = filename;
-        std::cout << "Stored chunk " << chunkID << " at " << filename << std::endl;
-    } else {
-        std::cerr << "Failed to store chunk " << chunkID << std::endl;
-    }
+    std::ofstream chunkFile(filename, std::ios::binary | std::ios::out);  
+    if (!chunkFile.is_open()) {
+            std::cerr << "Error opening output file for chunk " << filename << "." << std::endl;
+        }
+
+    chunkFile.write(data.data(), data.size());
+        chunkFile.close();  
+
+    chunkStorage[chunkID] = filename; 
+    std::cout << "Stored chunk " << chunkID << " at " << filename << std::endl;
 }
-
 void ChunkServer::handleClientRequest(int clientSocket) {
-    char buffer[256];
-    bzero(buffer, 256);
-    read(clientSocket, buffer, 255);
+    const size_t bufferSize = 1600; 
+    char buffer[bufferSize];
+    size_t totalBytesReceived = 0;
+    std::vector<char> chunkData;
 
-    std::string request(buffer);
+    ssize_t bytesRead;
+    while ((bytesRead = recv(clientSocket, buffer, bufferSize, 0)) > 0) {
+        totalBytesReceived += bytesRead;
+        chunkData.insert(chunkData.end(), buffer, buffer + bytesRead);
+
+        if (bytesRead < bufferSize) break;  
+    }
+
+    if (bytesRead < 0) {
+        std::cerr << "Error reading from client socket." << std::endl;
+        return;
+    }
+
+    std::string request(chunkData.begin(), chunkData.end());
+  
+
 
     if (request.starts_with("STORE ")) {
-        std::cout << "Received request: STORE "<< std::endl;
+        std::cout << "Received request: STORE" << std::endl;
+
         auto delimiterPos = request.find(" ");
+        if (delimiterPos == std::string::npos) {
+            std::cerr << "Invalid STORE command format." << std::endl;
+            return;
+        }
+
         auto chunkIDPos = request.find(" ", delimiterPos + 1);
         std::string chunkID = request.substr(delimiterPos + 1, chunkIDPos - delimiterPos - 1);
         std::string data = request.substr(chunkIDPos + 1);
+        std::cout << "Received chunk: " << chunkID << ", Data Size: " << data.size() << " bytes" << std::endl;
 
-        storeChunk(chunkID, data);
+        storeChunk(chunkID, data);  
+
     } else if (request.starts_with("RETRIEVE ")) {
-    std::cout << "Received request: RETRIEVE "  << std::endl;
+        std::cout << "Received request: RETRIEVE" << std::endl;
 
-    std::string chunkName = request.substr(9); 
-    std::string chunkPath = "chunks/" + chunkName;
+        std::string chunkName = request.substr(9);  
+        std::string chunkPath = "chunks/" + chunkName;
 
-    std::ifstream chunkFile(chunkPath, std::ios::binary);
-    if (chunkFile) {
-        std::cout << "Found chunk: " << chunkName << std::endl;
+        std::ifstream chunkFile(chunkPath, std::ios::binary);
+        if (chunkFile) {
+            std::cout << "Found chunk: " << chunkName << std::endl;
 
-        std::stringstream buffer;
-        buffer << chunkFile.rdbuf();
+            std::stringstream buffer;
+            buffer << chunkFile.rdbuf();
 
-        std::string chunkData = buffer.str();
+            std::string chunkData = buffer.str();
 
-        send(clientSocket, chunkData.c_str(), chunkData.length(), 0);
+            ssize_t bytesSent = send(clientSocket, chunkData.c_str(), chunkData.length(), 0);
+            if (bytesSent < 0) {
+                std::cerr << "Failed to send chunk data." << std::endl;
+            } else {
+                std::cout << "Sent chunk data for: " << chunkName << std::endl;
+            }
 
-        std::cout << "Sent chunk data for: " << chunkName << std::endl;
+        } else {
+            std::cerr << "Chunk not found: " << chunkName << std::endl;
+
+            std::string errorMessage = "ERROR: Chunk " + chunkName + " not found.";
+            send(clientSocket, errorMessage.c_str(), errorMessage.length(), 0);
+        }
+
     } else {
-        std::cerr << "Chunk not found: " << chunkName << std::endl;
-
-        std::string errorMessage = "ERROR: Chunk " + chunkName + " not found.";
-        send(clientSocket, errorMessage.c_str(), errorMessage.length(), 0);
-    }
-}
- else {
         std::string errorMsg = "ERROR: Invalid command\n";
         write(clientSocket, errorMsg.c_str(), errorMsg.size());
         std::cerr << "Invalid command received." << std::endl;

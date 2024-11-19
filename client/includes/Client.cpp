@@ -12,6 +12,16 @@
 #include <fstream>
 #include <string>
 
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <algorithm>
+
+
 Client::Client(const std::string& ip, int port) : masterIP(ip), masterPort(port) {}
 
 std::vector<std::string> Client::getChunkServers(const std::string& filename) {
@@ -69,32 +79,45 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     close(sock);
     return chunkServers;
 }
-
+#include <bitset>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <filesystem>
+#include <sstream>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 void Client::writeFile(const std::string& filepath) {
-
     std::filesystem::path path(filepath);
-     std::string filename= path.filename().string();
-    std::ifstream inputFile(filepath, std::ios::binary);
-    if (!inputFile) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
+    std::string filename = path.filename().string();
+
+    std::ifstream inputFile(filepath, std::ios::binary | std::ios::in);
+    if (!inputFile.is_open()) {
+        std::cerr << "Failed to open file: " << filepath << std::endl;
         return;
     }
-    std::vector<char> data((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
-    inputFile.close(); 
+
+    std::vector<char> fileData((std::istreambuf_iterator<char>(inputFile)),
+                               std::istreambuf_iterator<char>());
+
+    size_t fileSize = fileData.size();
+    const size_t chunkSize = 1024; 
+    size_t totalChunks = (fileSize / chunkSize) + (fileSize % chunkSize != 0 ? 1 : 0);
+    std::cout << "File size: " << fileSize << " bytes, Total chunks: " << totalChunks << std::endl;
 
     std::vector<std::string> chunkServers = getChunkServers(filename);
-    const size_t chunkSize = 256; 
-
-    size_t totalChunks = (data.size() / chunkSize) + (data.size() % chunkSize != 0 ? 1 : 0);
 
     for (size_t i = 0; i < totalChunks; ++i) {
         size_t start = i * chunkSize;
-        size_t end = std::min(start + chunkSize, data.size());
-        std::vector<char> chunkData(data.begin() + start, data.begin() + end);
+        size_t end = std::min(start + chunkSize, fileSize);
+        std::vector<char> chunkData(fileData.begin() + start, fileData.begin() + end);
+
         std::string chunkID = filename + "_" + std::to_string(i);
 
         if (!chunkServers.empty()) {
-            std::string chunkServerIPPort = chunkServers[0]; 
+            std::string chunkServerIPPort = chunkServers[0];
             size_t colonPos = chunkServerIPPort.find(':');
             if (colonPos == std::string::npos) {
                 std::cerr << "Invalid IP:Port format: " << chunkServerIPPort << std::endl;
@@ -124,27 +147,34 @@ void Client::writeFile(const std::string& filepath) {
                 close(chunkServerSocket);
                 return;
             }
+
             std::string command = "STORE " + chunkID + " ";
-
-            send(chunkServerSocket, command.c_str(), command.size(), 0);
-
-            ssize_t bytesSent = send(chunkServerSocket, chunkData.data(), chunkData.size(), 0);
+            ssize_t bytesSent = send(chunkServerSocket, command.c_str(), command.size(), 0);
             if (bytesSent < 0) {
-                std::cerr << "Failed to send chunk " << chunkID << " to chunk server." << std::endl;
+                std::cerr << "Failed to send STORE command." << std::endl;
                 close(chunkServerSocket);
                 return;
             }
+             bytesSent = send(chunkServerSocket, chunkData.data(), chunkData.size(), 0);
+            if (bytesSent < 0) {
+                std::cerr << "Failed to send chunk " << chunkID << " data to chunk server." << std::endl;
+                close(chunkServerSocket);
+                return;
+            } else {
+                std::cout << "Sent chunk " << chunkID << ", bytes: " << bytesSent << std::endl;
+            }
 
-            close(chunkServerSocket); 
 
+            close(chunkServerSocket);
             std::cout << "Sent chunk " << chunkID << " to chunk server " << chunkServerIP << ":" << chunkServerPort << "." << std::endl;
         } else {
             std::cerr << "No chunk servers available for storing the chunk." << std::endl;
             return;
         }
     }
-}
 
+    inputFile.close();
+}
 void Client::readfile(const std::string& fileName) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -166,68 +196,90 @@ void Client::readfile(const std::string& fileName) {
     std::string request = "READFILE: " + fileName;
     send(sock, request.c_str(), request.length(), 0);
 
-    char buffer[1024];
+    char buffer[4096]; // Increased buffer size
     int bytesRead = recv(sock, buffer, sizeof(buffer), 0);
     if (bytesRead > 0) {
         std::string response(buffer, bytesRead);
         std::cout << "Received chunk locations: " << response << std::endl;
 
-        std::ofstream outFile(fileName, std::ios::binary | std::ios::out);
-        if (!outFile) {
-            std::cerr << "Error opening output file" << std::endl;
-            close(sock);
-            return;
-        }
-
+        // Parse chunk information (chunk name and chunk server IP)
         std::istringstream responseStream(response);
+        std::vector<std::pair<std::string, std::string>> chunks;
+
         std::string chunkLine;
         while (std::getline(responseStream, chunkLine)) {
             size_t separatorPos = chunkLine.find(':');
             std::string chunkName = chunkLine.substr(0, separatorPos);
             std::string serverIP = chunkLine.substr(separatorPos + 1);
-            std::cout << "Requesting chunk: " << chunkName << " from server: " << serverIP << std::endl;
+            chunks.push_back({chunkName, serverIP});
+        }
+
+        std::sort(chunks.begin(), chunks.end(), [](const auto& a, const auto& b) {
+            return a.first < b.first;  
+        });
+
+        std::ofstream outputFile(fileName, std::ios::binary | std::ios::out);
+        if (!outputFile.is_open()) {
+            std::cerr << "Error opening output file" << std::endl;
+            close(sock);
+            return;
+        }
+
+        for (const auto& chunk : chunks) {
+            const std::string& chunkName = chunk.first;
+            const std::string& serverIP = chunk.second;
 
             int chunkSock = socket(AF_INET, SOCK_STREAM, 0);
             if (chunkSock < 0) {
                 std::cerr << "Error creating socket for chunk server" << std::endl;
-                continue; 
+                continue;
             }
 
             struct sockaddr_in chunkServerAddr;
             chunkServerAddr.sin_family = AF_INET;
-            chunkServerAddr.sin_port = htons(8081);  
+            chunkServerAddr.sin_port = htons(8081); 
             inet_pton(AF_INET, serverIP.c_str(), &chunkServerAddr.sin_addr);
 
             if (connect(chunkSock, (struct sockaddr*)&chunkServerAddr, sizeof(chunkServerAddr)) < 0) {
                 std::cerr << "Error connecting to Chunk Server at " << serverIP << std::endl;
                 close(chunkSock);
-                continue; 
+                continue;
             }
 
             std::string chunkRequest = "RETRIEVE " + chunkName;
             send(chunkSock, chunkRequest.c_str(), chunkRequest.length(), 0);
-
-            char chunkBuffer[1024];
-            int chunkBytesRead = recv(chunkSock, chunkBuffer, sizeof(chunkBuffer), 0);
-            if (chunkBytesRead > 0) {
-                std::string chunkData(chunkBuffer, chunkBytesRead);
-
-                outFile.write(chunkData.c_str(), chunkData.length());
-            } else {
-                std::cerr << "Failed to receive chunk data for " << chunkName << std::endl;
+            std::cout<<"sent retrive\n";
+            // Receive the chunk data and write it directly to the output file
+            int totalBytesReceived = 0;
+            while (true) {
+                int chunkBytesRead = recv(chunkSock, buffer, sizeof(buffer), 0);
+                if (chunkBytesRead > 0) {
+                    totalBytesReceived += chunkBytesRead;
+                    outputFile.write(buffer, chunkBytesRead);
+                } else if (chunkBytesRead == 0) {
+                    // EOF reached
+                    break;
+                } else {
+                    std::cerr << "Error receiving chunk data for " << chunkName << std::endl;
+                    break;
+                }
             }
 
-            close(chunkSock); 
+            std::cout << "Received " << totalBytesReceived << " bytes for chunk " << chunkName << std::endl;
+            close(chunkSock);
         }
 
-        outFile.close(); 
-        std::cout << "File " << fileName << " has been written successfully." << std::endl;
+        outputFile.close();
+        std::cout << "File " << fileName << " has been reconstructed successfully." << std::endl;
     } else {
         std::cerr << "Failed to receive chunk locations from Master Node" << std::endl;
     }
 
-    close(sock); 
+    close(sock);
 }
+
+
+
 void Client::listFiles() {
 
 int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -247,7 +299,6 @@ int sock = socket(AF_INET, SOCK_STREAM, 0);
         return;
     }
 
-    // Send request to list all files
     std::string request = "LISTFILES";
     send(sock, request.c_str(), request.length(), 0);
 
@@ -257,16 +308,13 @@ int sock = socket(AF_INET, SOCK_STREAM, 0);
         std::string response(buffer, bytesRead);
         std::cout << "Received filenames from Master Node:" << std::endl;
 
-     // Parse filenames and print them
-    // Parse filenames and print them in a directory-like structure
     std::istringstream responseStream(response);
     std::string filename;
     std::cout<<" - chunks/\n";
     while (std::getline(responseStream, filename)) {
-        // Print each file with a pipe (|) and indentation
         std::cout << "      | - " << filename << std::endl;
     }
 
 
-    close(sock);  // Close connection to Master Node
+    close(sock);  
 }}
