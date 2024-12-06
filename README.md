@@ -18,3 +18,5 @@ sh ./compile.sh
 sh ./compile.sh
 ./bin/masterNode
 ```
+
+brew install nlohmann-json

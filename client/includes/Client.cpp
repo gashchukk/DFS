@@ -2,24 +2,15 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/stat.h>  // For stat() function and struct stat
-
+#include <sys/stat.h>  
 #include <unistd.h>
 #include <cstring>
 #include <sstream>
 #include <vector>
 #include<filesystem>
 #include <fstream>
-#include <string>
-
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <algorithm>
+#include <bitset>
 
 
 Client::Client(const std::string& ip, int port) : masterIP(ip), masterPort(port) {}
@@ -79,40 +70,34 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     close(sock);
     return chunkServers;
 }
-#include <bitset>
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <filesystem>
-#include <sstream>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 void Client::writeFile(const std::string& filepath) {
     std::filesystem::path path(filepath);
     std::string filename = path.filename().string();
 
-    std::ifstream inputFile(filepath, std::ios::binary | std::ios::in);
-    if (!inputFile.is_open()) {
+    FILE* inputFile = fopen(filepath.c_str(), "rb");
+    if (!inputFile) {
         std::cerr << "Failed to open file: " << filepath << std::endl;
         return;
     }
 
-    std::vector<char> fileData((std::istreambuf_iterator<char>(inputFile)),
-                               std::istreambuf_iterator<char>());
+    fseek(inputFile, 0, SEEK_END);
+    size_t fileSize = ftell(inputFile);
+    rewind(inputFile);
 
-    size_t fileSize = fileData.size();
-    const size_t chunkSize = 1024; 
+    const size_t chunkSize = 1024;
     size_t totalChunks = (fileSize / chunkSize) + (fileSize % chunkSize != 0 ? 1 : 0);
     std::cout << "File size: " << fileSize << " bytes, Total chunks: " << totalChunks << std::endl;
 
     std::vector<std::string> chunkServers = getChunkServers(filename);
 
     for (size_t i = 0; i < totalChunks; ++i) {
-        size_t start = i * chunkSize;
-        size_t end = std::min(start + chunkSize, fileSize);
-        std::vector<char> chunkData(fileData.begin() + start, fileData.begin() + end);
+        char chunkData[chunkSize] = {0};
+        size_t bytesRead = fread(chunkData, 1, chunkSize, inputFile);
+
+        if (bytesRead <= 0) {
+            std::cerr << "Failed to read chunk " << i << " from file." << std::endl;
+            break;
+        }
 
         std::string chunkID = filename + "_" + std::to_string(i);
 
@@ -121,6 +106,7 @@ void Client::writeFile(const std::string& filepath) {
             size_t colonPos = chunkServerIPPort.find(':');
             if (colonPos == std::string::npos) {
                 std::cerr << "Invalid IP:Port format: " << chunkServerIPPort << std::endl;
+                fclose(inputFile);
                 return;
             }
 
@@ -128,53 +114,67 @@ void Client::writeFile(const std::string& filepath) {
             int chunkServerPort = std::stoi(chunkServerIPPort.substr(colonPos + 1));
 
             int chunkServerSocket = socket(AF_INET, SOCK_STREAM, 0);
+            
             if (chunkServerSocket < 0) {
                 std::cerr << "Error creating socket for chunk server." << std::endl;
+                fclose(inputFile);
                 return;
             }
 
             struct sockaddr_in serverAddr;
             serverAddr.sin_family = AF_INET;
             serverAddr.sin_port = htons(chunkServerPort);
-            if (inet_pton(AF_INET, chunkServerIP.c_str(), &serverAddr.sin_addr) <= 0) {
-                std::cerr << "Invalid IP address format: " << chunkServerIP << std::endl;
-                close(chunkServerSocket);
-                return;
-            }
+            inet_pton(AF_INET, chunkServerIP.c_str(), &serverAddr.sin_addr);
 
             if (connect(chunkServerSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
                 std::cerr << "Connection to chunk server failed: " << chunkServerIP << ":" << chunkServerPort << std::endl;
                 close(chunkServerSocket);
+                fclose(inputFile);
                 return;
             }
 
             std::string command = "STORE " + chunkID + " ";
+            uint32_t length = command.size();
+
+            send(chunkServerSocket, &length, sizeof(length), 0);
+
             ssize_t bytesSent = send(chunkServerSocket, command.c_str(), command.size(), 0);
+
             if (bytesSent < 0) {
-                std::cerr << "Failed to send STORE command." << std::endl;
+                std::cerr << "Failed to send command for chunk " << chunkID << " to chunk server." << std::endl;
                 close(chunkServerSocket);
+                fclose(inputFile);
                 return;
             }
-             bytesSent = send(chunkServerSocket, chunkData.data(), chunkData.size(), 0);
-            if (bytesSent < 0) {
-                std::cerr << "Failed to send chunk " << chunkID << " data to chunk server." << std::endl;
-                close(chunkServerSocket);
-                return;
-            } else {
-                std::cout << "Sent chunk " << chunkID << ", bytes: " << bytesSent << std::endl;
+
+            size_t remainingData = bytesRead;
+            size_t totalSent = 0;
+
+            while (remainingData > 0) {
+                ssize_t dataSent = send(chunkServerSocket, chunkData + totalSent, remainingData, 0);
+                if (dataSent < 0) {
+                    std::cerr << "Failed to send data for chunk " << chunkID << " to chunk server." << std::endl;
+                    close(chunkServerSocket);
+                    fclose(inputFile);
+                    return;
+                }
+                totalSent += dataSent;
+                remainingData -= dataSent;
             }
 
-
+            std::cout << "Sent chunk " << chunkID << " successfully." << std::endl;
             close(chunkServerSocket);
-            std::cout << "Sent chunk " << chunkID << " to chunk server " << chunkServerIP << ":" << chunkServerPort << "." << std::endl;
         } else {
             std::cerr << "No chunk servers available for storing the chunk." << std::endl;
+            fclose(inputFile);
             return;
         }
     }
 
-    inputFile.close();
+    fclose(inputFile);
 }
+
+
 void Client::readfile(const std::string& fileName) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -196,13 +196,12 @@ void Client::readfile(const std::string& fileName) {
     std::string request = "READFILE: " + fileName;
     send(sock, request.c_str(), request.length(), 0);
 
-    char buffer[4096]; // Increased buffer size
+    char buffer[4064];
     int bytesRead = recv(sock, buffer, sizeof(buffer), 0);
     if (bytesRead > 0) {
         std::string response(buffer, bytesRead);
         std::cout << "Received chunk locations: " << response << std::endl;
 
-        // Parse chunk information (chunk name and chunk server IP)
         std::istringstream responseStream(response);
         std::vector<std::pair<std::string, std::string>> chunks;
 
@@ -247,6 +246,10 @@ void Client::readfile(const std::string& fileName) {
             }
 
             std::string chunkRequest = "RETRIEVE " + chunkName;
+            uint32_t length = chunkRequest.size();
+
+            send(chunkSock, &length, sizeof(length), 0);
+
             send(chunkSock, chunkRequest.c_str(), chunkRequest.length(), 0);
             std::cout<<"sent retrive\n";
             // Receive the chunk data and write it directly to the output file

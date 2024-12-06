@@ -40,6 +40,7 @@ void ChunkServer::start() {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket >= 0) {
             handleClientRequest(clientSocket);
+            shutdown(clientSocket, SHUT_WR); 
             close(clientSocket);
         }
     }
@@ -55,54 +56,78 @@ void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data
         }
 
     chunkFile.write(data.data(), data.size());
-        chunkFile.close();  
+    chunkFile.close();  
 
     chunkStorage[chunkID] = filename; 
     std::cout << "Stored chunk " << chunkID << " at " << filename << std::endl;
 }
 void ChunkServer::handleClientRequest(int clientSocket) {
-    const size_t bufferSize = 1600; 
-    char buffer[bufferSize];
-    size_t totalBytesReceived = 0;
-    std::vector<char> chunkData;
 
-    ssize_t bytesRead;
-    while ((bytesRead = recv(clientSocket, buffer, bufferSize, 0)) > 0) {
-        totalBytesReceived += bytesRead;
-        chunkData.insert(chunkData.end(), buffer, buffer + bytesRead);
 
-        if (bytesRead < bufferSize) break;  
-    }
+    uint32_t length;
+    recv(clientSocket, &length, sizeof(length), 0);  
+    std::vector<char> headerBuff(length);
+    ssize_t header_read = recv(clientSocket, headerBuff.data(), length, 0);
 
-    if (bytesRead < 0) {
-        std::cerr << "Error reading from client socket." << std::endl;
+    if (header_read <= 0) {
+        if (header_read == 0) {
+            std::cerr << "Client closed connection." << std::endl;
+        } else {
+            std::cerr << "Error reading header from client socket." << std::endl;
+        }
         return;
     }
 
-    std::string request(chunkData.begin(), chunkData.end());
-  
+    std::string header(headerBuff.begin(), headerBuff.begin() + header_read);
 
-
-    if (request.starts_with("STORE ")) {
+    
+    if (header.starts_with("STORE ")) {
         std::cout << "Received request: STORE" << std::endl;
 
-        auto delimiterPos = request.find(" ");
+        auto delimiterPos = header.find(" ");  
         if (delimiterPos == std::string::npos) {
+            std::cout << header << std::endl;
             std::cerr << "Invalid STORE command format." << std::endl;
             return;
         }
 
-        auto chunkIDPos = request.find(" ", delimiterPos + 1);
-        std::string chunkID = request.substr(delimiterPos + 1, chunkIDPos - delimiterPos - 1);
-        std::string data = request.substr(chunkIDPos + 1);
-        std::cout << "Received chunk: " << chunkID << ", Data Size: " << data.size() << " bytes" << std::endl;
+        std::string chunkID = header.substr(6, delimiterPos - 6);  // Extract chunkID
+        std::cout << "Chunk ID: " << chunkID << std::endl;
 
+        std::vector<char> chunkData;
+        const size_t bufferSize = 1024;
+        char buffer[bufferSize];
+
+        size_t totalBytesReceived = 0;
+        ssize_t bytesRead;
+        while (true) {
+            bytesRead = recv(clientSocket, buffer, bufferSize, 0);
+            if (bytesRead <= 0) {
+                if (bytesRead == 0) {
+                    std::cerr << "Client closed connection." << std::endl;
+                } else {
+                    std::cerr << "Error reading chunk data from client." << std::endl;
+                }
+                break;
+            }
+
+            totalBytesReceived += bytesRead;
+            chunkData.insert(chunkData.end(), buffer, buffer + bytesRead);
+
+            if (bytesRead < bufferSize) {
+                break;  
+            }
+        }
+
+        std::string data(chunkData.begin(), chunkData.end());
+        std::cout << "Received chunk data of size: " << data.size() << " bytes." << std::endl;
         storeChunk(chunkID, data);  
 
-    } else if (request.starts_with("RETRIEVE ")) {
+    } else if (header.starts_with("RETRIEVE ")) {
         std::cout << "Received request: RETRIEVE" << std::endl;
 
-        std::string chunkName = request.substr(9);  
+        std::string chunkName = header.substr(9);  
+        std::cout<<header<<"\n"<<chunkName<<"\n";
         std::string chunkPath = "chunks/" + chunkName;
 
         std::ifstream chunkFile(chunkPath, std::ios::binary);

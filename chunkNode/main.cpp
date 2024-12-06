@@ -13,7 +13,6 @@ int main() {
     if (!fs::exists(directory)) {
         try {
             fs::create_directory(directory);
-            std::cout << "Directory 'chunks' created." << std::endl;
         } catch (const std::filesystem::filesystem_error& e) {
             std::cerr << "Error creating 'chunks' directory: " << e.what() << std::endl;
             return 1;
@@ -30,7 +29,6 @@ int main() {
 
                 if (processedChunks.find(chunkPath) == processedChunks.end()) {
                     std::string chunkName = entry.path().filename().string();
-                    std::cout << "New chunk detected: " << chunkName << std::endl;
 
                     chunkClient.sendHeartbeat(chunkName);
 

@@ -8,6 +8,8 @@
 MasterNode::MasterNode() {
     availableChunkServers = {"127.0.0.1:8081"};
 }
+
+
 void MasterNode::createFile(const std::string& filename, const ChunkLocation& chunkLocation) {
     if (fileMetadata.find(filename) != fileMetadata.end()) {
         fileMetadata[filename].push_back(chunkLocation);
@@ -59,8 +61,6 @@ std::vector<std::pair<std::string, std::string>> MasterNode::readFileRequest(con
     } else {
         std::cerr << "File not found in metadata\n";
     }
-
-
 
     if (chunkLocations.empty()) {
         std::cerr << "No chunks found for the file: " << fileName << std::endl;

@@ -30,10 +30,9 @@ void ChunkServerClient::sendHeartbeat(const std::string& chunkName) {
         return;
     }
 
-    // Include the chunk name and IP address in the heartbeat message
     std::string heartbeatMsg = "HEARTBEAT:" + masterIP + ":" + chunkName;
     send(sock, heartbeatMsg.c_str(), heartbeatMsg.size(), 0);
-    std::cout << "Heartbeat sent to Master: Chunk " << chunkName << " on " << masterIP << std::endl;
+    // std::cout << "Heartbeat sent to Master: Chunk " << chunkName << " on " << masterIP << std::endl;
 
     close(sock);
 }
