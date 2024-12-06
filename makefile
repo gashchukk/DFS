@@ -1,4 +1,4 @@
-DIRS := client masterNode chunkNode
+DIRS := client masterNode chunkNode chunkNode_copy chunkNode_copy2
 
 .PHONY: clean compile
 
@@ -9,6 +9,9 @@ clean:
 		rm -rf $$dir/bin $$dir/cmake-build-debug $$dir/*.o $$dir/*.out $$dir/*.log $$dir/*.tmp $$dir/*.DS_Store; \
 	done
 	@rm -rf chunkNode/chunks/ ;
+	@rm -rf chunkNode_copy/chunks/ ;
+	@rm -rf chunkNode_copy2/chunks/ ;
+	@rm -rf ./*.DS_Store;
 	@echo "Cleanup completed."
 
 compile:

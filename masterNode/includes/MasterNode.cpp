@@ -6,7 +6,7 @@
 
 
 MasterNode::MasterNode() {
-    availableChunkServers = {"127.0.0.1:8081"};
+    availableChunkServers = {};
 }
 
 
@@ -23,18 +23,21 @@ void MasterNode::createFile(const std::string& filename, const ChunkLocation& ch
               << fileMetadata[filename].size() << " chunk(s).\n";
 }
 
-// void MasterNode::printFileMetadata() {
-//     std::cout << "Current file metadata:" << std::endl;
-//     for (const auto& fileEntry : fileMetadata) {
-//         // Print the filename key
-//         std::cout << "Filename: " << fileEntry.first << std::endl;
+void MasterNode::printFileMetadata() {
+    std::cout << "SERVERS:" << std::endl;
+    for (const auto& element : availableChunkServers) {
+        std::cout << element << " ";
+    }
 
-//         // Iterate through chunks associated with this file
-//         for (const auto& chunk : fileEntry.second) {
-//             std::cout << "  ChunkID: " << chunk.chunkID << ", ServerIP: " << chunk.serverIP << std::endl;
-//         }
-//     }
-// }
+    std::cout << "Current file metadata:" << std::endl;
+    for (const auto& fileEntry : fileMetadata) {
+        std::cout << "Filename: " << fileEntry.first << std::endl;
+
+        for (const auto& chunk : fileEntry.second) {
+            std::cout << "  ChunkID: " << chunk.chunkID << ", ServerIP: " << chunk.serverIP << std::endl;
+        }
+    }
+}
 
 
 std::vector<std::pair<std::string, std::string>> MasterNode::readFileRequest(const std::string& request) {
@@ -45,7 +48,7 @@ std::vector<std::pair<std::string, std::string>> MasterNode::readFileRequest(con
 
     std::cout << "Received read request for file: " << fileName << std::endl;
 
-    //printFileMetadata();
+    printFileMetadata();
 
     std::vector<ChunkLocation> chunkLocations;
         

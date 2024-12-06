@@ -66,22 +66,28 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         }
     }
 
-    if (request.starts_with("HEARTBEAT:")) { 
-        size_t ipStart = request.find(':') + 1;
-        size_t chunkStart = request.find(':', ipStart) + 1;
+   if (request.starts_with("HEARTBEAT:")) {
+    size_t ipStart = request.find(':') + 1; 
+    size_t ipEnd = request.find(':', ipStart); 
+    std::string masterIP = request.substr(ipStart, ipEnd - ipStart);
 
-        std::string ip = request.substr(ipStart, chunkStart - ipStart - 1);
-        std::string chunkName = request.substr(chunkStart);
+    size_t portStart = ipEnd + 1;
+    size_t portEnd = request.find(':', portStart); 
+    std::string masterPort = request.substr(portStart, portEnd - portStart);
 
-        size_t underscorePos = chunkName.rfind('_');
-        std::string filename = chunkName.substr(0, underscorePos);
+    std::string masterIPWithPort = masterIP + ":" + masterPort;
 
-        std::cout << "Received heartbeat from " << ip << " for chunk " << chunkName << " (filename: " << filename << ")" << std::endl;
+    std::string chunkName = request.substr(portEnd + 1);  
+    size_t underscorePos = chunkName.rfind('_');
+    std::string filename = chunkName.substr(0, underscorePos);
 
-        ChunkLocation chunk(chunkName, ip);
-        masterNode.createFile(filename, chunk);
+    std::cout << "Received heartbeat from Master: " << masterIPWithPort
+              << " for chunk " << chunkName << " (filename: " << filename << ")" << std::endl;
 
-    }   else if(request.starts_with("READFILE:")){
+    ChunkLocation chunk(chunkName, masterIPWithPort);
+    masterNode.createFile(filename, chunk);
+}
+   else if(request.starts_with("READFILE:")){
         std::vector<std::pair<std::string, std::string>> chunkLocations = masterNode.readFileRequest(request);
 
         std::string response;
@@ -98,6 +104,11 @@ void MasterNodeServer::handleConnection(int clientSocket) {
             allFiles += pair.first + "\n";  
         }
         send(clientSocket, allFiles.c_str(), allFiles.length(), 0);
+    } else if(request.starts_with("NEW_SERVER")){
+        size_t ipStart = request.find(' ') + 1;
+        std::string chunkServerIP = request.substr(ipStart);
+        std::cout << "New chunk server connected at: " << chunkServerIP << std::endl;
+        masterNode.availableChunkServers.push_back(chunkServerIP);
     }
 
 }

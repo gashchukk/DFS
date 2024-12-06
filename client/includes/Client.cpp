@@ -227,7 +227,14 @@ void Client::readfile(const std::string& fileName) {
         for (const auto& chunk : chunks) {
             const std::string& chunkName = chunk.first;
             const std::string& serverIP = chunk.second;
+            size_t separatorPos = serverIP.find(':');
+            std::string serverPort = serverIP.substr(0, separatorPos);
+            std::string serverIPs = serverIP.substr(separatorPos + 1);
+            unsigned short port = static_cast<unsigned short>(std::stoi(serverIPs));
 
+            std::cout << "Chunk Name: " << chunkName
+                        << ", Server Port: " << serverPort
+                        << ", Server IP: " << serverIPs << std::endl;
             int chunkSock = socket(AF_INET, SOCK_STREAM, 0);
             if (chunkSock < 0) {
                 std::cerr << "Error creating socket for chunk server" << std::endl;
@@ -236,7 +243,7 @@ void Client::readfile(const std::string& fileName) {
 
             struct sockaddr_in chunkServerAddr;
             chunkServerAddr.sin_family = AF_INET;
-            chunkServerAddr.sin_port = htons(8081); 
+            chunkServerAddr.sin_port = htons(port); 
             inet_pton(AF_INET, serverIP.c_str(), &chunkServerAddr.sin_addr);
 
             if (connect(chunkSock, (struct sockaddr*)&chunkServerAddr, sizeof(chunkServerAddr)) < 0) {
@@ -252,7 +259,6 @@ void Client::readfile(const std::string& fileName) {
 
             send(chunkSock, chunkRequest.c_str(), chunkRequest.length(), 0);
             std::cout<<"sent retrive\n";
-            // Receive the chunk data and write it directly to the output file
             int totalBytesReceived = 0;
             while (true) {
                 int chunkBytesRead = recv(chunkSock, buffer, sizeof(buffer), 0);
@@ -260,7 +266,6 @@ void Client::readfile(const std::string& fileName) {
                     totalBytesReceived += chunkBytesRead;
                     outputFile.write(buffer, chunkBytesRead);
                 } else if (chunkBytesRead == 0) {
-                    // EOF reached
                     break;
                 } else {
                     std::cerr << "Error receiving chunk data for " << chunkName << std::endl;
