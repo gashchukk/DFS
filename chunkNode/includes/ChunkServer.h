@@ -10,7 +10,8 @@ class ChunkServer {
 public:
     ChunkServer(int port);
     void start();
-    void storeChunk(const std::string& chunkID, const std::string& data);
+    void storeChunk( std::string& chunkID, const std::string& data);
+    void storeChunkCopies( std::string& chunkName, const std::vector<std::string>& servers);
 
     int getServerPort() const; 
 

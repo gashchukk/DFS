@@ -30,22 +30,23 @@ int main(int argc, char* argv[]) {
     std::unordered_set<std::string> processedChunks;
 
     std::thread t1([&]() {
-        ChunkServerClient chunkClient("127.0.0.1", 8080, port);
-        while (true) {
-            for (const auto& entry : fs::directory_iterator("chunks/")) {
-                std::string chunkPath = entry.path().string();
+    ChunkServerClient chunkClient("127.0.0.1", 8080, port);
+    while (true) {
+        for (const auto& entry : fs::directory_iterator("chunks/")) {
+            std::string chunkPath = entry.path().string();
 
-                if (processedChunks.find(chunkPath) == processedChunks.end()) {
-                    std::string chunkName = entry.path().filename().string();
+            if (processedChunks.find(chunkPath) == processedChunks.end()) {
+                std::string chunkName = entry.path().filename().string();
 
-                    chunkClient.sendHeartbeat(chunkName);
+                chunkClient.sendHeartbeat(chunkName);
 
-                    processedChunks.insert(chunkPath);
-                }
+                processedChunks.insert(chunkPath);
             }
-            std::this_thread::sleep_for(std::chrono::seconds(5));
         }
-    });
+        std::this_thread::sleep_for(std::chrono::seconds(10));  // Adjusted sleep interval to 10 seconds
+    }
+});
+
 
     std::thread t2([&]() {
         ChunkServer chunkServer(port); 

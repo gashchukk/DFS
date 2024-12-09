@@ -14,6 +14,17 @@
 #include <algorithm>
 #include <sstream>
 #include "ChunkServer.h" 
+#include <algorithm> // for std::find_if
+#include <cctype>    // for std::isspace
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
+#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
  ChunkServer::ChunkServer(int port) : serverPort(port) {}
 
@@ -41,21 +52,19 @@ void ChunkServer::start() {
     listen(serverSocket, 5);
     std::cout << "Chunk Server listening on port " << serverPort << std::endl;
 
-    // Notify the master server about the new chunk server
     notifyMaster();
 
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket >= 0) {
-            handleClientRequest(clientSocket);  // Assuming you have this function to handle requests
-            shutdown(clientSocket, SHUT_WR); 
+            handleClientRequest(clientSocket); 
+
             close(clientSocket);
         }
     }
 }
 
 void ChunkServer::notifyMaster() {
-    // Create a client socket to notify the master server
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket < 0) {
         std::cerr << "Error creating client socket to notify master" << std::endl;
@@ -85,7 +94,8 @@ void ChunkServer::notifyMaster() {
 }
 
 
-void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data) {
+void ChunkServer::storeChunk( std::string& chunkID, const std::string& data) {
+    chunkID.erase(chunkID.find_last_not_of(" \t\n\r\f\v") + 1);
     std::string filename = "chunks/" + chunkID; 
 
     std::ofstream chunkFile(filename, std::ios::binary | std::ios::out);  
@@ -99,12 +109,192 @@ void ChunkServer::storeChunk(const std::string& chunkID, const std::string& data
     chunkStorage[chunkID] = filename; 
     std::cout << "Stored chunk " << chunkID << " at " << filename << std::endl;
 }
+
+
+// void ChunkServer::storeChunkCopies( std::string& chunkName, const std::vector<std::string>& servers) {
+//     //std::string chunkNameCopy1 = chunkName + "_0";
+//     std::string storeCommand1 = "STORE " + chunkName;
+//     uint32_t length = storeCommand1.size();
+
+//     std::cout<<servers[0] <<" | " << servers[1]<<std::endl;
+
+//     size_t colonPos0 = servers[0].find(':');
+//     if (colonPos0 == std::string::npos) {
+//         std::cerr << "Invalid format for server address: " << servers[0] << std::endl;
+//         return;
+//     }
+//     std::string server0IP = servers[0].substr(0, colonPos0);
+//     int server0Port = std::stoi(servers[0].substr(colonPos0 + 1));
+
+//     int sock1 = socket(AF_INET, SOCK_STREAM, 0);
+//     if (sock1 < 0) {
+//         std::cerr << "Socket creation error for server 1" << std::endl;
+//         return;
+//     }
+
+//     struct sockaddr_in serverAddr1;
+//     serverAddr1.sin_family = AF_INET;
+//     serverAddr1.sin_port = htons(server0Port);
+
+//     if (inet_pton(AF_INET, server0IP.c_str(), &serverAddr1.sin_addr) <= 0) {
+//         std::cerr << "Invalid address/ Address not supported for server 1" << std::endl;
+//         return;
+//     }
+
+//     if (connect(sock1, (struct sockaddr*)&serverAddr1, sizeof(serverAddr1)) < 0) {
+//         std::cerr << "Connection Failed for server 1" << std::endl;
+//         return;
+//     }
+
+//     send(sock1, &length, sizeof(length), 0);
+
+//     send(sock1, storeCommand1.c_str(), storeCommand1.size(), 0);
+
+//     std::string chunkPath = "chunkNode/chunks/" + chunkName;
+
+//     if (!std::filesystem::exists(chunkPath)) {
+//     std::cerr << "Error: File does not exist: " << chunkPath << std::endl;
+//     return;
+// }
+
+// if (!std::filesystem::is_regular_file(chunkPath)) {
+//     std::cerr << "Error: Path is not a regular file: " << chunkPath << std::endl;
+//     return;
+// }
+
+//     for (const auto& entry : std::filesystem::directory_iterator("chunks/")) {
+//         std::cout << "Found file: " << entry.path().string() << std::endl;
+//     }
+
+//     std::ifstream chunkFile(chunkPath, std::ios::binary);
+//     if (chunkFile) {
+//         std::cout << "Found chunk: " << chunkName << std::endl;
+
+//         std::stringstream buffer;
+//         buffer << chunkFile.rdbuf();
+
+//         std::string chunkData = buffer.str();
+
+//         ssize_t bytesSent = send(sock1, chunkData.c_str(), chunkData.length(), 0);
+//         if (bytesSent < 0) {
+//             std::cerr << "Failed to send chunk data." << std::endl;
+//         } else {
+//             std::cout << "Sent chunk data for: " << chunkName << std::endl;
+//         }
+
+//     } else {
+//             std::cerr << "Failed to open file: " << chunkPath << " | Error: " << strerror(errno) << std::endl;
+//             std::cout << "Chunk Path (Absolute): " << std::filesystem::absolute(chunkPath).string() << std::endl;
+
+
+//     }
+
+//     std::cout << "Store command sent to server 1: " << storeCommand1 << std::endl;
+//     close(sock1);
+// }
+
+
+void ChunkServer::storeChunkCopies(std::string& chunkName, const std::vector<std::string>& servers) {
+    std::string storeCommand1 = "STORE " + chunkName;
+    uint32_t length = storeCommand1.size();
+
+    std::cout << servers[0] << " | " << servers[1] << std::endl;
+
+    // Parse the first server's IP and port
+    size_t colonPos0 = servers[0].find(':');
+    if (colonPos0 == std::string::npos) {
+        std::cerr << "Invalid format for server address: " << servers[0] << std::endl;
+        return;
+    }
+    std::string server0IP = servers[0].substr(0, colonPos0);
+    int server0Port = std::stoi(servers[0].substr(colonPos0 + 1));
+
+    // Create socket for the first server
+    int sock1 = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock1 < 0) {
+        std::cerr << "Socket creation error for server 1" << std::endl;
+        return;
+    }
+
+    struct sockaddr_in serverAddr1;
+    serverAddr1.sin_family = AF_INET;
+    serverAddr1.sin_port = htons(server0Port);
+
+    if (inet_pton(AF_INET, server0IP.c_str(), &serverAddr1.sin_addr) <= 0) {
+        std::cerr << "Invalid address/ Address not supported for server 1" << std::endl;
+        return;
+    }
+
+    if (connect(sock1, (struct sockaddr*)&serverAddr1, sizeof(serverAddr1)) < 0) {
+        std::cerr << "Connection Failed for server 1" << std::endl;
+        return;
+    }
+
+    // Send the STORE command
+    send(sock1, &length, sizeof(length), 0);
+    send(sock1, storeCommand1.c_str(), storeCommand1.size(), 0);
+
+    // Resolve and verify chunk path
+    std::string chunkPath = "chunks/" + chunkName;
+    std::string absoluteChunkPath = std::filesystem::absolute(chunkPath).string();
+    std::cout << "Chunk Path (Absolute): " << absoluteChunkPath << std::endl;
+
+    if (!std::filesystem::exists(chunkPath)) {
+        std::cerr << "Error: File does not exist: " << chunkPath << std::endl;
+        return;
+    }
+
+    if (!std::filesystem::is_regular_file(chunkPath)) {
+        std::cerr << "Error: Path is not a regular file: " << chunkPath << std::endl;
+        return;
+    }
+
+    // Open the binary chunk file
+    std::ifstream chunkFile(chunkPath, std::ios::binary | std::ios::ate);
+    if (!chunkFile.is_open()) {
+        std::cerr << "Failed to open file: " << chunkPath << " | Error: " << strerror(errno) << std::endl;
+        return;
+    }
+
+    // Get file size
+    std::ifstream::pos_type fileSize = chunkFile.tellg();
+    chunkFile.seekg(0, std::ios::beg);
+
+    if (fileSize <= 0) {
+        std::cerr << "Error: File is empty or size is invalid: " << chunkPath << std::endl;
+        return;
+    }
+
+    // Read the entire binary file into memory
+    std::vector<char> chunkData(fileSize);
+    if (!chunkFile.read(chunkData.data(), fileSize)) {
+        std::cerr << "Failed to read file: " << chunkPath << std::endl;
+        return;
+    }
+    chunkFile.close();
+
+    // Send the binary data
+    ssize_t bytesSent = send(sock1, chunkData.data(), chunkData.size(), 0);
+    if (bytesSent < 0) {
+        std::cerr << "Failed to send chunk data." << std::endl;
+    } else {
+        std::cout << "Sent chunk data for: " << chunkName << std::endl;
+    }
+
+    std::cout << "Store command sent to server 1: " << storeCommand1 << std::endl;
+
+    // Close the socket
+    close(sock1);
+}
+
+
 void ChunkServer::handleClientRequest(int clientSocket) {
 
 
     uint32_t length;
     recv(clientSocket, &length, sizeof(length), 0);  
-    std::vector<char> headerBuff(length);
+
+    std::vector<char> headerBuff(length+10);
     ssize_t header_read = recv(clientSocket, headerBuff.data(), length, 0);
 
     if (header_read <= 0) {
@@ -116,8 +306,7 @@ void ChunkServer::handleClientRequest(int clientSocket) {
         return;
     }
 
-    std::string header(headerBuff.begin(), headerBuff.begin() + header_read);
-
+    std::string header = std::string(headerBuff.begin(), headerBuff.begin() + header_read);
     
     if (header.starts_with("STORE ")) {
         std::cout << "Received request: STORE" << std::endl;
@@ -129,7 +318,7 @@ void ChunkServer::handleClientRequest(int clientSocket) {
             return;
         }
 
-        std::string chunkID = header.substr(6, delimiterPos - 6);  // Extract chunkID
+        std::string chunkID = header.substr(6, delimiterPos - 7);  // Extract chunkID
         std::cout << "Chunk ID: " << chunkID << std::endl;
 
         std::vector<char> chunkData;
@@ -137,7 +326,7 @@ void ChunkServer::handleClientRequest(int clientSocket) {
         char buffer[bufferSize];
 
         size_t totalBytesReceived = 0;
-        ssize_t bytesRead;
+        size_t bytesRead;
         while (true) {
             bytesRead = recv(clientSocket, buffer, bufferSize, 0);
             if (bytesRead <= 0) {
@@ -151,7 +340,7 @@ void ChunkServer::handleClientRequest(int clientSocket) {
 
             totalBytesReceived += bytesRead;
             chunkData.insert(chunkData.end(), buffer, buffer + bytesRead);
-
+ 
             if (bytesRead < bufferSize) {
                 break;  
             }
@@ -191,9 +380,28 @@ void ChunkServer::handleClientRequest(int clientSocket) {
             send(clientSocket, errorMessage.c_str(), errorMessage.length(), 0);
         }
 
+    } else if (header.find("SERVERS ") == 0) {
+    std::string serversPart = header.substr(8);
+    size_t spacePos = serversPart.find(' ');
+    if (spacePos != std::string::npos) {
+        std::string chunkName = serversPart.substr(0, spacePos);
+        std::string serversList = serversPart.substr(spacePos +1);
+        std::vector<std::string> servers;
+        size_t commaPos = serversList.find(',');
+        if (commaPos != std::string::npos) {
+            servers.push_back(serversList.substr(0, commaPos));
+            servers.push_back(serversList.substr(commaPos + 1));
+        } else {
+            servers.push_back(serversList);
+        }
+        storeChunkCopies(chunkName, servers);
     } else {
-        std::string errorMsg = "ERROR: Invalid command\n";
-        write(clientSocket, errorMsg.c_str(), errorMsg.size());
-        std::cerr << "Invalid command received." << std::endl;
+        std::cerr << "Invalid SERVERS message format." << std::endl;
     }
+} else {
+    std::cerr << "Invalid command received." << std::endl;
+    std::cout << header  << std::endl;
+    std::cout << "Size of header:" << std::to_string(header.size()) << std::endl;
+}
+
 }
