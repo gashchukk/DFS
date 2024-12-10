@@ -44,7 +44,7 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     while ((bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
         buffer[bytesReceived] = '\0'; 
         response += buffer;
-        if (response.find("\n") != std::string::npos) { // End-of-message marker
+        if (response.find("\n") != std::string::npos) { 
             break;
         }
     }
@@ -57,8 +57,8 @@ std::vector<std::string> Client::getChunkServers(const std::string& filename) {
     if (response.rfind("ChunkServerIP:", 0) == 0) { 
         std::string chunkServerIP = response.substr(15); 
 
-        chunkServerIP.erase(chunkServerIP.find_last_not_of(" \n\r\t") + 1); //trim from end
-        chunkServerIP.erase(0, chunkServerIP.find_first_not_of(" \n\r\t")); //trim fron start
+        chunkServerIP.erase(chunkServerIP.find_last_not_of(" \n\r\t") + 1);
+        chunkServerIP.erase(0, chunkServerIP.find_first_not_of(" \n\r\t"));
 
 
         chunkServers.push_back(chunkServerIP);
@@ -99,7 +99,7 @@ void Client::writeFile(const std::string& filepath) {
             break;
         }
 
-        std::string chunkID = filename + "_" + std::to_string(i);
+        std::string chunkID = filename + "_0_" + std::to_string(i);
 
         if (!chunkServers.empty()) {
             std::string chunkServerIPPort = chunkServers[0];

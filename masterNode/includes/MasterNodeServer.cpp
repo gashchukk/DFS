@@ -10,9 +10,6 @@
 #include <thread>
 
 MasterNodeServer::MasterNodeServer(int port) : serverPort(port) {}
-
-std::unordered_map<std::string, std::chrono::time_point<std::chrono::steady_clock>> activeChunkServers;
-
 void MasterNodeServer::start() {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
@@ -32,20 +29,17 @@ void MasterNodeServer::start() {
 
     listen(serverSocket, 5);
     std::cout << "Master Node listening on port " << serverPort << std::endl;
-
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket >= 0) {
             std::cout << "Client or Chunk Server connected" << std::endl;
             handleConnection(clientSocket);
-            close(clientSocket);
+
         }
     }
 }
-
-
-
 void MasterNodeServer::handleConnection(int clientSocket) {
+
     char buffer[1024];
     int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
     if (bytesReceived <= 0) {
@@ -81,7 +75,7 @@ void MasterNodeServer::handleConnection(int clientSocket) {
     chunkName.erase(std::find_if(chunkName.rbegin(), chunkName.rend(), [](unsigned char ch) {
     return !std::isspace(ch);
 }).base(), chunkName.end());  
-    size_t underscorePos = chunkName.rfind('_');
+    size_t underscorePos = chunkName.find('_');
     std::string filename = chunkName.substr(0, underscorePos);
 
     std::cout << "heartbeat: " << serverIPWithPort
@@ -101,7 +95,6 @@ void MasterNodeServer::handleConnection(int clientSocket) {
     }
 
     send(clientSocket, response.c_str(), response.size(), 0);
-    //std::cout << "Sent chunk locations to client: " << response << std::endl;
     
     } else if (request.starts_with("LISTFILES")){
         std::string allFiles;
@@ -116,5 +109,5 @@ void MasterNodeServer::handleConnection(int clientSocket) {
         std::cout << "New chunkServer connected at: " << chunkServerIP << std::endl;
         masterNode.availableChunkServers.push_back(chunkServerIP);
     }
-
+masterNode.printFileMetadata();
 }

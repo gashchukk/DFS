@@ -14,12 +14,11 @@ public:
     void printFileMetadata();
     std::string selectChunkServer();
     std::vector<std::pair<std::string, std::string>> readFileRequest(const std::string& request);
-     std::vector<std::string> selectTwoDifferentServers(std::string& currentServer);
+    std::vector<std::string> selectTwoDifferentServers(std::string& currentServer, std::string chunkName);
     void sendSelectedServersToCurrentServer(std::string& currentServer, std::string& chunkName);
-    
     
     std::unordered_map<std::string, std::vector<ChunkLocation>> fileMetadata; // maps file to chunk locations
     std::vector<std::string> availableChunkServers;
 
-private:
+
 };
