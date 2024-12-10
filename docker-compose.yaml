@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  masternode:
+    build:
+      context: .
+      dockerfile: Dockerfile.master
+    ports:
+      - "8080:8080"
+    networks:
+      - distributed-fs-network
+
+  chunknode1:
+    build:
+      context: .
+      dockerfile: Dockerfile.chunk
+    command: ./bin/node 8081
+    ports:
+      - "8081:8081"
+    networks:
+      - distributed-fs-network
+    depends_on:
+      - masternode
+
+  chunknode2:
+    build:
+      context: .
+      dockerfile: Dockerfile.chunk
+    command: ./bin/node 8082
+    ports:
+      - "8082:8082"
+    networks:
+      - distributed-fs-network
+    depends_on:
+      - masternode
+
+  chunknode3:
+    build:
+      context: .
+      dockerfile: Dockerfile.chunk
+    command: ./bin/node 8083
+    ports:
+      - "8083:8083"
+    networks:
+      - distributed-fs-network
+    depends_on:
+      - masternode
+
+networks:
+  distributed-fs-network:
+    driver: bridge
