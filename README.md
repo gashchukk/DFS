@@ -20,6 +20,7 @@ Use the following command to compile the whole project
 ```bash
 make compile
 ```
+It will create for you 3 instances of chunkNode project to emualate different computers.
 Also there is a useful tool for cleaning the project
 ```bash
 make clean
@@ -29,19 +30,21 @@ It removes executables, build folders, etc.
 
 ### To run client
 ```bash
-./bin/client <file_path>
+./bin/client
 ```
 
 ### To run chunkNode server
 ```bash
-./compile.sh
 ./bin/node {port}
 ```
 
 ### To run masterNode server
 ```bash
-./compile.sh
 ./bin/masterNode
 ```
 
 By default `masterMode` uses port 8080, so make sure you used different ports for `chunkNode`s. For instance, 8081, 8082, 8083 would do perfectly.
+
+## How to run each instance independently
+On each instance you have `./compile.sh` file that compiles only currect instance. Executable can be found in `bin` dir.
+
