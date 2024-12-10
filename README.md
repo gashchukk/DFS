@@ -4,8 +4,6 @@
 ## [Bohdan Hashchuk](https://github.com/gashchukk)
 ## [Dmytro Khamula](https://github.com/hamuladm)
 
-<img width="830" alt="Screenshot 2024-09-26 at 16 59 58" src="https://github.com/user-attachments/assets/f07b04f3-557c-46e8-90c7-68b4a05bf410">
-
 ### Project description
 This paper presents a distributed file system inspired by the Google File System (GFS), designed to handle large amounts of data on multiple computers. The system is built to be fault-tolerant and efficient, storing multiple copies of data and a master-slave architecture to manage files.
 
