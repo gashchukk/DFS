@@ -10,8 +10,8 @@
 #include <string>
 #include <algorithm>
 #include<chrono>
-#include <unistd.h> // For sleep()
-
+#include <unistd.h> 
+#include<unordered_set>
 MasterNode::MasterNode() {
     availableChunkServers = {};
 }
@@ -44,8 +44,8 @@ void MasterNode::printFileMetadata() {
     }
 }
 
-std::vector<std::pair<std::string, std::string>> MasterNode::readFileRequest(const std::string& request) {
-    std::vector<std::pair<std::string, std::string>> chunkInfo;
+std::vector<ChunkLocation> MasterNode::readFileRequest(const std::string& request) {
+    std::vector<ChunkLocation> chunkInfo;
     std::string baseFileName = request.substr(request.find(':') + 1);
 
     std::string trimmedName = [] (const std::string& str) -> std::string {
@@ -55,35 +55,39 @@ std::vector<std::pair<std::string, std::string>> MasterNode::readFileRequest(con
     }(baseFileName);
 
     std::vector<ChunkLocation> chunkLocations;
-   
+    std::cout<<trimmedName<<std::endl;
         auto it = fileMetadata.find(trimmedName);
         if (it != fileMetadata.end()) {
             chunkLocations = it->second;
         } else {
             std::cerr << " File not found in metadata\n";
         }
-    
+    for (const auto& entry : chunkLocations){
+        std::cout<< entry.chunkID << " | " <<entry.serverIP<<std::endl;
+    }
 
     if (chunkLocations.empty()) {
         std::cerr << "File not found in any copy\n";
         return chunkInfo;
     }
-    size_t i =0;
-    std::string fileNameWithAttempt = trimmedName + "_" + std::to_string(i);
-    while (true){
-    for (const auto& chunk : chunkLocations) {
-        if (chunk.chunkID.find(fileNameWithAttempt) != std::string::npos) {
-            chunkInfo.push_back({chunk.chunkID, chunk.serverIP});
-        }else{
+    std::unordered_set<int> selectedNumbers; 
 
+    for (const auto& chunk : chunkLocations) {
+
+        size_t lastUnderscore = chunk.chunkID.find_last_of('_');
+        if (lastUnderscore != std::string::npos) {
+            int lastNumber = std::stoi(chunk.chunkID.substr(lastUnderscore + 1));
+            
+            if (selectedNumbers.find(lastNumber) == selectedNumbers.end()) {
+                selectedNumbers.insert(lastNumber);
+                chunkInfo.push_back({chunk.chunkID, chunk.serverIP});
+            }
         }
-    }
     }
 
     return chunkInfo;
+
 }
-
-
 std::string MasterNode::selectChunkServer() {
     std::random_device rd;
     std::mt19937 gen(rd());

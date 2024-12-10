@@ -195,7 +195,7 @@ void Client::readfile(const std::string& fileName) {
 
     std::string request = "READFILE: " + fileName;
     send(sock, request.c_str(), request.length(), 0);
-
+    std::cout<<request<<std::endl;
     char buffer[4064];
     int bytesRead = recv(sock, buffer, sizeof(buffer), 0);
     if (bytesRead > 0) {
@@ -262,6 +262,7 @@ void Client::readfile(const std::string& fileName) {
             int totalBytesReceived = 0;
             while (true) {
                 int chunkBytesRead = recv(chunkSock, buffer, sizeof(buffer), 0);
+                std::cout<<chunkBytesRead<<std::endl;
                 if (chunkBytesRead > 0) {
                     totalBytesReceived += chunkBytesRead;
                     outputFile.write(buffer, chunkBytesRead);

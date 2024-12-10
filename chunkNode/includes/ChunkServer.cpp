@@ -59,9 +59,8 @@ void ChunkServer::start() {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket >= 0) {
             std::cout << "Client connected" << std::endl;
-
-            std::thread clientThread(&ChunkServer::handleClientRequest, this, clientSocket);
-            clientThread.detach();
+            handleClientRequest(clientSocket);
+            close(clientSocket);
         }
     }
 }
@@ -171,8 +170,10 @@ void ChunkServer::storeChunkCopies(std::string& chunkName, const std::vector<std
         std::string filename = chunkName.substr(0, firstUnderscorePos);
         std::string copyNumber = chunkName.substr(firstUnderscorePos + 1, secondUnderscorePos - firstUnderscorePos - 1);
         std::string chunk = chunkName.substr(secondUnderscorePos + 1);
-
-        std::string serverChunkName = filename + "_" + std::to_string(i + 1) + "_" + chunk;
+        if(copyNumber == "2"){
+            break;
+        }
+        std::string serverChunkName = filename + "_" + std::to_string(std::stoi(copyNumber) + 1) + "_" + chunk;
         std::string storeCommand = storeCommandBase + serverChunkName;
         uint32_t commandLength = storeCommand.size();
         std::cout<<storeCommand<<std::endl;
@@ -274,12 +275,9 @@ void ChunkServer::handleClientRequest(int clientSocket) {
             if (bytesSent < 0) {
                 std::cerr << "Failed to send chunk data." << std::endl;
             } else {
-                std::cout << "Sent chunk data for: " << chunkName << std::endl;
+                std::cout << "Sent chunk data for: " << chunkName << " | "<< std::to_string(bytesSent)<<std::endl;
             }
 
-        }else if(header.starts_with("PING")){
-            std::string response = "PONG";
-            send(clientSocket,response.c_str(), response.size(),0);
         } else {
             std::cerr << "Chunk not found: " << chunkName << std::endl;
 

@@ -87,11 +87,11 @@ void MasterNodeServer::handleConnection(int clientSocket) {
 
 }
    else if(request.starts_with("READFILE:")){
-        std::vector<std::pair<std::string, std::string>> chunkLocations = masterNode.readFileRequest(request);
+        std::vector<ChunkLocation> chunkLocations = masterNode.readFileRequest(request);
 
         std::string response;
     for (const auto& chunk : chunkLocations) {
-        response += chunk.first + ":" + chunk.second + "\n";  
+        response += chunk.chunkID + ":" + chunk.serverIP + "\n";  
     }
 
     send(clientSocket, response.c_str(), response.size(), 0);

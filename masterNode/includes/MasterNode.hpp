@@ -13,7 +13,7 @@ public:
     void createFile(const std::string& filename, const ChunkLocation& chunkLocation);
     void printFileMetadata();
     std::string selectChunkServer();
-    std::vector<std::pair<std::string, std::string>> readFileRequest(const std::string& request);
+    std::vector<ChunkLocation> readFileRequest(const std::string& request);
     std::vector<std::string> selectTwoDifferentServers(std::string& currentServer, std::string chunkName);
     void sendSelectedServersToCurrentServer(std::string& currentServer, std::string& chunkName);
     
