@@ -1,0 +1,24 @@
+# MasterNode Dockerfile
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    libboost-all-dev
+
+# Set working directory
+WORKDIR /app/masterNode
+
+# Copy project files
+COPY masterNode/ .
+
+# Compile the project
+RUN bash compile.sh
+
+# Expose port 8080
+EXPOSE 8080
+
+# Run the master node
+CMD ["./bin/masterNode"]

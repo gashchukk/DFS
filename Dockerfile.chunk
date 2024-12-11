@@ -1,0 +1,21 @@
+# ChunkNode Dockerfile
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    libboost-all-dev
+
+# Set working directory
+WORKDIR /app/chunkNode
+
+# Copy project files
+COPY chunkNode/ .
+
+# Compile the project
+RUN bash compile.sh
+
+# Expose ports 8081-8083
+EXPOSE 8081 8082 8083
