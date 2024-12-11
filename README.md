@@ -11,9 +11,7 @@ Architecture of GFS:
 
 ![](imgs/gfs.png)
 
-Our architecture:
 
-![](imgs/dfs.png)
 
 ### Compilation of the project
 Use the following command to compile the whole project
